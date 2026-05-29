@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantum Career Path Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fraunces:ital,wght@0,300;0,600;1,300;1,600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="modal.css" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="nav-logo">
+        <span class="logo-dot"></span>
+        Quantum Career Path Explorer
+      </div>
+      <div class="nav-links">
+        <a href="#how-it-works">How it works</a>
+        <a href="#experience">The experience</a>
+        <a href="#features">Features</a>
+        <a href="#mvp">MVP</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-content">
+      <div class="hero-tag">Career exploration, reimagined</div>
+      <h1 class="hero-title">
+        Your next role may be<br />
+        <em>closer than you think.</em>
+      </h1>
+      <p class="hero-sub">
+        The interactive Career Path Explorer helps you visualize how you can grow —
+        not as a chart on a slide, but as a living, personal journey through
+        Quantum Workplace.
+      </p>
+      <div class="hero-actions">
+        <a href="#how-it-works" class="btn btn-primary">How it works</a>
+        <a href="#experience" class="btn btn-ghost">Start your journey</a>
+      </div>
+      <div class="hero-example">
+        <span class="hero-example-prompt"><strong>Example:</strong> "I'm a Customer Success Manager. What could my next 3 career moves look like?"</span>
+        <div class="hero-example-branches">
+          <span class="branch-pill">↑ Senior CSM</span>
+          <span class="branch-pill lateral">↔ Partnership Success Manager</span>
+          <span class="branch-pill lateral">↔ Customer Implementation Manager</span>
+          <span class="branch-pill stretch">⟺ Account Executive</span>
+          <span class="branch-pill stretch">⟺ Product Marketing</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="canvas-wrap">
+        <div class="canvas-header">
+          <span class="sample-badge">Sample</span>
+          <span class="canvas-header-sub">Starting from: Customer Success Manager · Click any role to explore</span>
+        </div>
+        <canvas id="latticeCanvas"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS (merged with reframe) -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-tag">How it works</p>
+        <h2>There's more than one way to advance</h2>
+        <p class="section-sub">
+          Forget static job ladders and dive into this interactive experience that maps every
+          direction growth can take — upward, lateral, exploratory, or specialized.
+        </p>
+      </div>
+
+      <div class="reframe-grid reframe-grid-inline">
+        <div class="reframe-card reframe-bad">
+          <div class="reframe-card-label">Traditional career ladders say</div>
+          <ul>
+            <li>Up = success</li>
+            <li>Static org chart PDFs</li>
+            <li>Generic job ladders with no context</li>
+            <li>Growth conversations only at review time</li>
+          </ul>
+        </div>
+        <div class="reframe-divider">→</div>
+        <div class="reframe-card reframe-good">
+          <div class="reframe-card-label">Career Path Explorer says</div>
+          <ul>
+            <li>Every employee sees exactly what's expected at their level</li>
+            <li>IC and People Leadership tracks are equally valued</li>
+            <li>Cross-functional moves are mapped and encouraged</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="how-it-works-divider">
+        <span>The experience, in three steps</span>
+      </div>
+
+      <div class="steps">
+
+        <div class="step" data-step="1">
+          <div class="step-number">01</div>
+          <div class="step-icon">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="24" r="14" stroke="currentColor" stroke-width="2"/>
+              <path d="M24 16 L24 24 L30 28" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>Start exploring</h3>
+          <p>
+            You arrive curious — maybe feeling stuck, maybe just ready for something new.
+            This is your space to explore what's possible without any pressure to commit.
+          </p>
+          <div class="step-tags">
+            <span>No pressure</span>
+            <span>Just explore</span>
+            <span>Your pace</span>
+          </div>
+        </div>
+
+        <div class="step" data-step="2">
+          <div class="step-number">02</div>
+          <div class="step-icon">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="8" y="20" width="12" height="12" rx="3" stroke="currentColor" stroke-width="2"/>
+              <rect x="28" y="20" width="12" height="12" rx="3" stroke="currentColor" stroke-width="2"/>
+              <rect x="18" y="8" width="12" height="12" rx="3" stroke="currentColor" stroke-width="2"/>
+              <path d="M20 20 L24 20M28 20 L24 20M24 20 L24 20" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
+          <h3>Pick your starting role</h3>
+          <p>
+            Tell us where you are today — your department, title, and what you're good at.
+            The more you share, the more tailored your pathway becomes.
+          </p>
+          <div class="step-tags">
+            <span>Your department</span>
+            <span>Your strengths</span>
+            <span>Your interests</span>
+          </div>
+        </div>
+
+        <div class="step" data-step="3">
+          <div class="step-number">03</div>
+          <div class="step-icon">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="24" cy="12" r="5" stroke="currentColor" stroke-width="2"/>
+              <circle cx="12" cy="36" r="5" stroke="currentColor" stroke-width="2"/>
+              <circle cx="36" cy="36" r="5" stroke="currentColor" stroke-width="2"/>
+              <path d="M24 17 L12 31M24 17 L36 31" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h3>See where you can go</h3>
+          <p>
+            Your personal career map opens up — every realistic next move, mapped visually.
+            Click any role to see what it takes, who's done it, and how to get there.
+          </p>
+          <div class="step-tags">
+            <span>Visual map</span>
+            <span>Real paths</span>
+            <span>Your next move</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CHOOSE YOUR ROLE (MOCKUP) -->
+  <section class="role-selector-section" id="experience">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-tag">Step 1 — Choose your starting role</p>
+        <h2>Where are you starting from?</h2>
+        <p class="section-sub">
+          Pick your current role. The system does the rest —
+          surfacing every realistic next move on your personal pathway.
+        </p>
+      </div>
+      <div class="role-selector-mockup">
+        <div class="role-selector-header">
+          <div class="search-bar">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="#9898a8" stroke-width="1.5"/><path d="M10.5 10.5 L13.5 13.5" stroke="#9898a8" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span class="search-placeholder">Search roles, departments, or skills…</span>
+          </div>
+          <div class="filter-pills">
+            <span class="filter-pill active">All</span>
+            <span class="filter-pill">Customer Success</span>
+            <span class="filter-pill">Sales</span>
+            <span class="filter-pill">Sales Development</span>
+            <span class="filter-pill">Product</span>
+            <span class="filter-pill">Engineering</span>
+            <span class="filter-pill">Marketing</span>
+            <span class="filter-pill">Customer Implementation &amp; Support</span>
+            <span class="filter-pill">Revenue Operations</span>
+            <span class="filter-pill">People / HR</span>
+            <span class="filter-pill">Insights</span>
+            <span class="filter-pill">Business Development</span>
+          </div>
+        </div>
+        <div class="role-card-grid">
+          <div class="role-card role-card-selected" data-role-id="csm">
+            <div class="role-card-dept">Customer Success</div>
+            <div class="role-card-title">Customer Success Manager</div>
+            <div class="role-card-level">Mid-Senior · IC Track</div>
+            <div class="role-card-badge">You are here</div>
+          </div>
+          <div class="role-card" data-role-id="account-manager">
+            <div class="role-card-dept">Customer Success</div>
+            <div class="role-card-title">Account Manager</div>
+            <div class="role-card-level">Mid-Level · IC Track</div>
+          </div>
+          <div class="role-card" data-role-id="senior-csm">
+            <div class="role-card-dept">Customer Success</div>
+            <div class="role-card-title">Senior Customer Success Manager</div>
+            <div class="role-card-level">Senior · IC Track</div>
+          </div>
+          <div class="role-card" data-role-id="account-executive">
+            <div class="role-card-dept">Sales</div>
+            <div class="role-card-title">Account Executive</div>
+            <div class="role-card-level">Mid-Level · IC Track</div>
+          </div>
+          <div class="role-card" data-role-id="senior-ae">
+            <div class="role-card-dept">Sales</div>
+            <div class="role-card-title">Senior Account Executive</div>
+            <div class="role-card-level">Senior · IC Track</div>
+          </div>
+          <div class="role-card" data-role-id="customer-implementation-manager">
+            <div class="role-card-dept">Customer Implementation</div>
+            <div class="role-card-title">Customer Implementation Manager</div>
+            <div class="role-card-level">Mid-Level · IC Track</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EXAMPLE FLOW -->
+  <section class="example-flow-section" id="example-flow">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-tag">Step 3 — Interactive career map</p>
+        <h2>From one role, a universe of paths</h2>
+        <p class="section-sub">
+          Click any role to see what's possible. Every node reveals a full picture
+          of what the move looks like in practice.
+        </p>
+      </div>
+
+      <div class="example-flow">
+        <div class="flow-current">
+          <div class="flow-node flow-node-current">
+            <div class="flow-node-label">Current Role</div>
+            <div class="flow-node-title">Customer Success Manager</div>
+          </div>
+          <div class="flow-arrow">→</div>
+        </div>
+
+        <div class="flow-branches">
+          <div class="flow-branch">
+            <div class="flow-node flow-node-vertical">
+              <div class="flow-node-move-type">↑ Vertical</div>
+              <div class="flow-node-title">Senior Customer Success Manager</div>
+            </div>
+          </div>
+          <div class="flow-branch">
+            <div class="flow-node flow-node-vertical">
+              <div class="flow-node-move-type">↑ Manager Track</div>
+              <div class="flow-node-title">CSM Manager</div>
+            </div>
+          </div>
+          <div class="flow-branch">
+            <div class="flow-node flow-node-lateral">
+              <div class="flow-node-move-type">↔ Lateral</div>
+              <div class="flow-node-title">Partnership Success Manager</div>
+            </div>
+          </div>
+          <div class="flow-branch">
+            <div class="flow-node flow-node-lateral">
+              <div class="flow-node-move-type">↔ Lateral</div>
+              <div class="flow-node-title">Sr. Customer Implementation Manager</div>
+            </div>
+          </div>
+          <div class="flow-branch">
+            <div class="flow-node flow-node-crossdept">
+              <div class="flow-node-move-type">⟺ Cross-Dept</div>
+              <div class="flow-node-title">Account Executive</div>
+            </div>
+          </div>
+          <div class="flow-branch">
+            <div class="flow-node flow-node-crossdept">
+              <div class="flow-node-move-type">⟺ Cross-Dept</div>
+              <div class="flow-node-title">Director of Product Marketing</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="role-detail-card">
+        <div class="role-detail-header">
+          <div>
+            <p class="role-detail-eyebrow">Clicking a node reveals…</p>
+            <h3 class="role-detail-title">Senior Customer Success Manager</h3>
+          </div>
+          <span class="move-badge move-badge-vertical">↑ Vertical · ~18–24 months from CSM</span>
+        </div>
+        <div class="role-detail-grid">
+          <div class="role-detail-item">
+            <div class="role-detail-item-label">Role overview</div>
+            <div class="role-detail-item-value">Manages enterprise and strategic accounts with complex stakeholder environments. Leads executive business reviews with VP and C-level contacts. Serves as escalation point for critical accounts and defines CS team best practices.</div>
+          </div>
+          <div class="role-detail-item">
+            <div class="role-detail-item-label">Required competencies</div>
+            <div class="role-detail-item-value">Enterprise account management &amp; C-suite engagement · Escalation management &amp; recovery · CS program and process design · Churn modeling &amp; risk analytics · Mentoring and CS capability building</div>
+          </div>
+          <div class="role-detail-item">
+            <div class="role-detail-item-label">Advancement milestones</div>
+            <div class="role-detail-item-value">Manage 100%+ renewal rate for enterprise book for 2+ years · Lead successful recovery of at least one strategic at-risk account · Mentor at least two CSMs to measurable growth</div>
+          </div>
+          <div class="role-detail-item">
+            <div class="role-detail-item-label">Next steps from here</div>
+            <div class="role-detail-item-value role-detail-avatars">
+              <span class="avatar-chip">↑ Principal CSM</span>
+              <span class="avatar-chip">↑ CSM Director, Strategic Accounts</span>
+              <span class="avatar-chip">⟺ Director of Customer Success</span>
+              <span class="avatar-chip">⟺ Director of Product Marketing</span>
+            </div>
+          </div>
+          <div class="role-detail-item">
+            <div class="role-detail-item-label">People who made this move</div>
+            <div class="role-detail-item-value role-detail-avatars">
+              <span class="avatar-chip">Real employee stories · coming soon</span>
+            </div>
+          </div>
+          <div class="role-detail-item">
+            <div class="role-detail-item-label">Internal openings &amp; mentors</div>
+            <div class="role-detail-item-value">Open roles and suggested mentors will appear here once connected to your HRIS.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-tag">Powerful features</p>
+        <h2>Built for real employees,<br />not HR presentations</h2>
+      </div>
+      <div class="features-grid">
+
+        <div class="feature-card feature-large">
+          <div class="feature-icon">📊</div>
+          <h3>Skill Gap Analyzer</h3>
+          <p>
+            "Here's what you already have vs. what you need." Visualize the
+            delta across communication, analytics, leadership, technical skills,
+            and stakeholder management — with specific resources to close each gap.
+          </p>
+          <p class="feature-context">Example: CSM → Senior CSM skill gap</p>
+          <div class="skill-gap-visual">
+            <div class="skill-bar-row">
+              <span class="skill-name">Executive Communication</span>
+              <div class="skill-bar-track"><div class="skill-bar-fill skill-bar-med"></div></div>
+              <span class="skill-pct">55%</span>
+            </div>
+            <div class="skill-bar-row">
+              <span class="skill-name">Strategic Acct Mgmt</span>
+              <div class="skill-bar-track"><div class="skill-bar-fill skill-bar-high"></div></div>
+              <span class="skill-pct">75%</span>
+            </div>
+            <div class="skill-bar-row">
+              <span class="skill-name">Renewal Forecasting</span>
+              <div class="skill-bar-track"><div class="skill-bar-fill skill-bar-med"></div></div>
+              <span class="skill-pct">65%</span>
+            </div>
+            <div class="skill-bar-row">
+              <span class="skill-name">Churn Risk Analytics</span>
+              <div class="skill-bar-track"><div class="skill-bar-fill skill-bar-low"></div></div>
+              <span class="skill-pct">35%</span>
+            </div>
+            <div class="skill-bar-row">
+              <span class="skill-name">CS Program Design</span>
+              <div class="skill-bar-track"><div class="skill-bar-fill skill-bar-low"></div></div>
+              <span class="skill-pct">25%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-card feature-scenario">
+          <div class="feature-icon">🌿</div>
+          <h3>"Choose Your Path" Scenario Mode</h3>
+          <p>This is where the branching element shines.</p>
+          <div class="scenario-example">
+            <div class="scenario-prompt">"You want more strategic work but less day-to-day client interaction."</div>
+            <div class="scenario-results">
+              <span>Revenue Operations Manager</span>
+              <span>Sales Enablement Manager</span>
+              <span>Product Manager</span>
+              <span>Insights Analyst</span>
+            </div>
+            <div class="scenario-prompt">"You enjoy coaching others and want to build a team."</div>
+            <div class="scenario-results">
+              <span>CSM Manager</span>
+              <span>SDR Manager</span>
+              <span>People Operations Specialist</span>
+              <span>L&amp;D Specialist</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🎙️</div>
+          <h3>Day-in-the-Life Stories</h3>
+          <p>
+            Employee interviews, mini videos, timelines, and "how I got here"
+            stories. This makes career mobility feel real — not aspirational
+            and distant.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🗺️</div>
+          <h3>Development Planner</h3>
+          <p>
+            Save pathways, compare routes, bookmark roles, build growth plans,
+            and export goals directly to managers — all in one place.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">💬</div>
+          <h3>Manager Conversation Starters</h3>
+          <p>
+            Generate talking points for your next 1:1 based on where you want to go,
+            so development conversations happen more often and go deeper.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- PREMIUM FEATURES -->
+  <section class="premium-section">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-tag">Premium features</p>
+        <h2>Features that make it feel premium</h2>
+      </div>
+      <div class="premium-grid">
+
+        <div class="premium-card">
+          <div class="premium-card-icon">✦</div>
+          <h3>AI Career Recommendations</h3>
+          <p>"Based on your interests and experience…" — personalized path suggestions that evolve as the employee grows.</p>
+        </div>
+
+        <div class="premium-card">
+          <div class="premium-card-icon">⚙️</div>
+          <h3>Interactive Filters</h3>
+          <div class="filter-demo-pills">
+            <span>Remote / Hybrid</span>
+            <span>Leadership track</span>
+            <span>IC track</span>
+            <span>Technical</span>
+            <span>Strategic</span>
+            <span>Compensation growth</span>
+            <span>Work-life balance</span>
+          </div>
+        </div>
+
+        <div class="premium-card">
+          <div class="premium-card-icon">🏅</div>
+          <h3>Gamification</h3>
+          <p>Progress badges, skill completion markers, and pathway milestones — making development visible and motivating.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- UX INSPIRATION -->
+  <section class="ux-section">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-tag">UX inspiration</p>
+        <h2>Three visual languages</h2>
+        <p class="section-sub">
+          Different layout styles serve different types of career exploration.
+          The right approach depends on what employees are trying to do.
+        </p>
+      </div>
+      <div class="ux-grid">
+
+        <div class="ux-card">
+          <div class="ux-card-visual ux-tech-tree">
+            <div class="tt-node tt-root"></div>
+            <div class="tt-branches">
+              <div class="tt-line"></div>
+              <div class="tt-node tt-mid"></div>
+              <div class="tt-line"></div>
+              <div class="tt-node tt-mid"></div>
+            </div>
+            <div class="tt-top-row">
+              <div class="tt-node tt-leaf"></div>
+              <div class="tt-node tt-leaf"></div>
+              <div class="tt-node tt-leaf"></div>
+            </div>
+          </div>
+          <h3>Tech Tree Style</h3>
+          <p>Best for promotions and competency progression.</p>
+        </div>
+
+        <div class="ux-card">
+          <div class="ux-card-visual ux-subway">
+            <svg viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <line x1="20" y1="60" x2="180" y2="60" stroke="#5b4cf5" stroke-width="3"/>
+              <line x1="20" y1="30" x2="100" y2="30" stroke="#1db87e" stroke-width="3"/>
+              <line x1="100" y1="30" x2="180" y2="90" stroke="#1db87e" stroke-width="3" stroke-dasharray="5 3"/>
+              <circle cx="20" cy="60" r="7" fill="#5b4cf5"/>
+              <circle cx="70" cy="60" r="7" fill="#5b4cf5"/>
+              <circle cx="100" cy="60" r="7" fill="#5b4cf5"/>
+              <circle cx="100" cy="30" r="7" fill="#1db87e"/>
+              <circle cx="150" cy="60" r="7" fill="#5b4cf5"/>
+              <circle cx="180" cy="60" r="7" fill="#5b4cf5"/>
+              <circle cx="180" cy="90" r="7" fill="#1db87e" stroke="#1db87e"/>
+            </svg>
+          </div>
+          <h3>Subway Map Style</h3>
+          <p>Best for cross-functional movement across teams.</p>
+        </div>
+
+        <div class="ux-card">
+          <div class="ux-card-visual ux-constellation">
+            <svg viewBox="0 0 200 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <line x1="100" y1="70" x2="50" y2="30" stroke="#9898a8" stroke-width="1" opacity=".4"/>
+              <line x1="100" y1="70" x2="160" y2="25" stroke="#9898a8" stroke-width="1" opacity=".4"/>
+              <line x1="100" y1="70" x2="30" y2="100" stroke="#9898a8" stroke-width="1" opacity=".4"/>
+              <line x1="100" y1="70" x2="170" y2="110" stroke="#9898a8" stroke-width="1" opacity=".4"/>
+              <line x1="100" y1="70" x2="100" y2="130" stroke="#9898a8" stroke-width="1" opacity=".4"/>
+              <line x1="50" y1="30" x2="160" y2="25" stroke="#9898a8" stroke-width="1" opacity=".2"/>
+              <circle cx="100" cy="70" r="10" fill="#5b4cf5"/>
+              <circle cx="50" cy="30" r="6" fill="#8b7cf8"/>
+              <circle cx="160" cy="25" r="6" fill="#8b7cf8"/>
+              <circle cx="30" cy="100" r="5" fill="#c4b5fd"/>
+              <circle cx="170" cy="110" r="5" fill="#1db87e"/>
+              <circle cx="100" cy="130" r="5" fill="#c4b5fd"/>
+            </svg>
+          </div>
+          <h3>Constellation Style</h3>
+          <p>Best for exploratory career discovery without a fixed destination.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CROSS-DEPT MOBILITY MATRIX -->
+  <section class="mobility-section">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-tag">Cross-department mobility</p>
+        <h2>Common cross-functional paths at Quantum Workplace</h2>
+        <p class="section-sub">
+          These moves reflect natural skill and experience overlaps across our teams —
+          and are encouraged as part of our career philosophy.
+        </p>
+      </div>
+      <div class="mobility-table-wrap">
+        <table class="mobility-table">
+          <thead>
+            <tr>
+              <th>Career Transition</th>
+              <th>Why It Works</th>
+              <th>What's Needed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="mobility-from">Sales Development</span> → <span class="mobility-to">Account Executive</span></td>
+              <td>Strong pipeline mastery and deal knowledge</td>
+              <td>12–24 months of consistent SDR quota achievement</td>
+            </tr>
+            <tr>
+              <td><span class="mobility-from">Account Executive</span> → <span class="mobility-to">Customer Success Manager</span></td>
+              <td>Customer relationship skills and product knowledge</td>
+              <td>1–2 years of AE experience; CS orientation</td>
+            </tr>
+            <tr>
+              <td><span class="mobility-from">Customer Success Manager</span> → <span class="mobility-to">Account Executive</span></td>
+              <td>Customer relationship depth and product storytelling</td>
+              <td>3+ years of CS; demonstrated expansion/growth mindset</td>
+            </tr>
+            <tr>
+              <td><span class="mobility-from">Software Developer</span> → <span class="mobility-to">Product Manager</span></td>
+              <td>Technical depth and cross-functional experience</td>
+              <td>2–3 years of Dev experience; PM training or MBA a plus</td>
+            </tr>
+            <tr>
+              <td><span class="mobility-from">Customer Support</span> → <span class="mobility-to">Customer Implementation Manager</span></td>
+              <td>Platform expertise and customer communication</td>
+              <td>2 years of support experience; project management skills</td>
+            </tr>
+            <tr>
+              <td><span class="mobility-from">Insights Analyst</span> → <span class="mobility-to">Marketing Analyst / Product Manager</span></td>
+              <td>Data fluency and business impact orientation</td>
+              <td>2+ years of analytics; demonstrated business partnership</td>
+            </tr>
+            <tr>
+              <td><span class="mobility-from">Marketing Analyst</span> → <span class="mobility-to">Revenue Operations Manager</span></td>
+              <td>Campaign analytics and GTM data familiarity</td>
+              <td>2–3 years of marketing analytics; CRM proficiency</td>
+            </tr>
+            <tr>
+              <td><span class="mobility-from">Product Designer</span> → <span class="mobility-to">Lead Researcher (Insights)</span></td>
+              <td>UX research background and human behavioral interest</td>
+              <td>3+ years of design/research experience</td>
+            </tr>
+            <tr>
+              <td><span class="mobility-from">People Operations Specialist</span> → <span class="mobility-to">Employee Experience Manager</span></td>
+              <td>HR knowledge and engagement program interest</td>
+              <td>2 years in HR operations; strong communication skills</td>
+            </tr>
+            <tr>
+              <td><span class="mobility-from">Data Scientist</span> → <span class="mobility-to">Product Manager</span></td>
+              <td>Analytical rigor and product understanding</td>
+              <td>2+ years of data science; demonstrated PM interest and skills</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- DATA MODEL -->
+  <section class="data-model-section">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-tag">Smart data model</p>
+        <h2>What powers it all</h2>
+        <p class="section-sub">
+          The experience is only as good as the data behind it.
+          Here's what the model needs to track.
+        </p>
+      </div>
+      <div class="data-model-grid">
+        <div class="data-model-card">
+          <div class="data-model-icon">👤</div>
+          <h3>Roles</h3>
+          <ul>
+            <li>Title &amp; department</li>
+            <li>Level (Intern → C-Suite)</li>
+            <li>IC or Management track</li>
+            <li>Core skills &amp; competencies</li>
+            <li>Salary band</li>
+          </ul>
+        </div>
+        <div class="data-model-card">
+          <div class="data-model-icon">🔗</div>
+          <h3>Connections</h3>
+          <ul>
+            <li>From role → to role</li>
+            <li>Move type: ↑ Promotion / ↔ Lateral / ⟺ Cross-dept</li>
+            <li>Difficulty &amp; estimated timeline</li>
+            <li>Within-dept or cross-functional</li>
+          </ul>
+        </div>
+        <div class="data-model-card">
+          <div class="data-model-icon">🧠</div>
+          <h3>Skills</h3>
+          <ul>
+            <li>Skill name</li>
+            <li>Proficiency level required</li>
+            <li>Advancement milestones</li>
+            <li>Linked learning resources</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MVP -->
+  <section class="mvp-section" id="mvp">
+    <div class="container">
+      <div class="section-header">
+        <p class="section-tag">MVP recommendation</p>
+        <h2>Start smaller than you think</h2>
+        <p class="section-sub">
+          A focused Version 1 ships faster and teaches you more than a perfect Version 1 ever could.
+        </p>
+      </div>
+      <div class="mvp-grid">
+        <div class="mvp-card mvp-build">
+          <div class="mvp-card-label">✓ Build in V1</div>
+          <ul>
+            <li>Role explorer</li>
+            <li>Branching career map</li>
+            <li>Role detail cards</li>
+            <li>Skill requirements</li>
+            <li>Save / favorite paths</li>
+          </ul>
+        </div>
+        <div class="mvp-card mvp-later">
+          <div class="mvp-card-label">→ Save for later</div>
+          <ul>
+            <li>AI recommendations</li>
+            <li>Complex analytics</li>
+            <li>HRIS integrations</li>
+            <li>Full gamification layer</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STRATEGIC SHIFT / CLOSING -->
+  <section class="closing-section">
+    <div class="container">
+      <div class="closing-box">
+        <p class="section-tag">Our career philosophy at Quantum Workplace</p>
+        <div class="closing-compare">
+          <div class="closing-old">
+            <p class="closing-compare-label">Traditional career ladders imply:</p>
+            <p class="closing-statement closing-statement-old">"Up = success."</p>
+          </div>
+          <div class="closing-arrow">→</div>
+          <div class="closing-new">
+            <p class="closing-compare-label">Career Path Explorer reinforces:</p>
+            <p class="closing-statement closing-statement-new">"Growth can be upward, lateral, exploratory, or specialized — and every path is equally valued."</p>
+          </div>
+        </div>
+        <p class="closing-footnote">Built on Quantum Workplace's Career Pathways Framework 2026 — covering Individual Contributor and Management tracks across all departments.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-logo">
+          <span class="logo-dot"></span>
+          Quantum Career Path Explorer
+        </div>
+        <p class="footer-copy">© 2026 Quantum Workplace. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

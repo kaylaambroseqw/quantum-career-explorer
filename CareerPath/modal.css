@@ -1,0 +1,305 @@
+/* ============================================================
+   QUANTUM CAREER PATH EXPLORER — modal.css
+   Role detail modal, interactive states
+   ============================================================ */
+
+/* ── MODAL OVERLAY ──────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 24, 0.55);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s ease;
+}
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+.modal-overlay.open .modal-box {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+/* ── MODAL BOX ──────────────────────────────────────────────── */
+.modal-box {
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .18);
+  width: 100%;
+  max-width: 640px;
+  max-height: 88vh;
+  overflow-y: auto;
+  transform: translateY(24px) scale(.97);
+  opacity: 0;
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1), opacity .22s ease;
+  scroll-behavior: smooth;
+}
+
+/* ── MODAL HEADER ───────────────────────────────────────────── */
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 28px 28px 20px;
+  border-bottom: 1px solid var(--surface-3);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 2;
+}
+.modal-dept {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--qw-dark-blue);
+  margin-bottom: 6px;
+}
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-bottom: 10px;
+}
+.modal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.modal-level {
+  font-size: .78rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 100px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  border: 1px solid var(--surface-3);
+}
+.modal-timeline {
+  font-size: .78rem;
+  color: var(--ink-faint);
+  padding: 3px 10px;
+  background: var(--surface-2);
+  border-radius: 100px;
+  border: 1px solid var(--surface-3);
+}
+.track-badge {
+  font-size: .72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 100px;
+}
+.track-ic   { background: var(--accent-soft);  color: var(--accent); border: 1px solid var(--accent-2); }
+.track-mgmt { background: #E6EDF5; color: var(--qw-dark-blue); border: 1px solid var(--qw-med-blue); }
+
+.modal-close {
+  background: var(--surface-2);
+  border: 1px solid var(--surface-3);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  font-size: .9rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  line-height: 1;
+}
+.modal-close:hover { background: var(--surface-3); color: var(--ink); }
+
+/* ── MODAL TABS ─────────────────────────────────────────────── */
+.modal-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--surface-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.modal-tabs::-webkit-scrollbar { display: none; }
+.modal-tab {
+  padding: 12px 16px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+  font-family: var(--font-body);
+}
+.modal-tab:hover { color: var(--ink); }
+.modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── MODAL BODY ─────────────────────────────────────────────── */
+.modal-body { padding: 24px 28px 28px; }
+.modal-panel { display: none; }
+.modal-panel.active { display: block; animation: panelIn .2s ease; }
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.modal-overview-text {
+  font-size: .97rem;
+  color: var(--ink-soft);
+  line-height: 1.75;
+}
+
+.modal-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.modal-list li {
+  font-size: .92rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  padding-left: 20px;
+  position: relative;
+}
+.modal-list li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 900;
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+.modal-list-check li::before {
+  content: '✓';
+  color: var(--green);
+  font-size: .85rem;
+  line-height: 1.7;
+}
+
+.modal-empty {
+  font-size: .9rem;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+/* ── NEXT STEPS ─────────────────────────────────────────────── */
+.modal-next-legend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.legend-item {
+  font-size: .72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 100px;
+}
+.legend-vertical  { background: var(--accent-soft);  color: var(--accent); }
+.legend-lateral   { background: var(--green-soft);   color: var(--green);  }
+.legend-crossdept { background: #E6EDF5; color: var(--qw-dark-blue); }
+
+.modal-next-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.next-step-chip {
+  padding: 8px 16px;
+  border-radius: 100px;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid;
+  font-family: var(--font-body);
+  transition: var(--transition);
+}
+.next-step-vertical  { background: var(--accent-soft);  color: var(--accent); border-color: var(--accent-2); }
+.next-step-lateral   { background: var(--green-soft);   color: var(--green);  border-color: var(--green);    }
+.next-step-crossdept { background: #E6EDF5; color: var(--qw-dark-blue); border-color: var(--qw-med-blue); }
+.next-step-chip:hover { filter: brightness(.94); transform: translateY(-1px); }
+
+/* ── NEXT STEPS GROUPS ──────────────────────────────────────── */
+.next-steps-group {
+  margin-bottom: 20px;
+}
+.next-steps-group:last-child { margin-bottom: 0; }
+.next-steps-group-label {
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+.next-steps-group-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── FLOW NODE INTERACTIVE STATES ───────────────────────────── */
+.flow-node-clickable {
+  cursor: pointer;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.flow-node-clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+}
+.flow-node-clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ── SCENARIO ACTIVE STATE ──────────────────────────────────── */
+.scenario-prompt {
+  transition: var(--transition);
+  border-left-color: var(--surface-3) !important;
+}
+.scenario-prompt:hover { border-left-color: var(--accent) !important; }
+.scenario-prompt.scenario-active {
+  background: var(--accent-soft) !important;
+  border-left-color: var(--accent) !important;
+  color: var(--ink) !important;
+  font-style: normal !important;
+}
+
+/* ── CARD FADE IN ───────────────────────────────────────────── */
+@keyframes cardFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.card-fade-in { animation: cardFadeIn .25s ease forwards; }
+
+/* ── DETAIL OPEN BUTTON ─────────────────────────────────────── */
+.detail-open-btn {
+  margin-top: 24px;
+  width: 100%;
+  justify-content: center;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .modal-overlay { padding: 12px; align-items: flex-end; }
+  .modal-box { border-radius: 20px 20px 0 0; max-height: 92vh; }
+  .modal-header { padding: 20px 20px 16px; }
+  .modal-body  { padding: 20px 20px 24px;  }
+  .modal-tabs  { padding: 0 20px;          }
+}
