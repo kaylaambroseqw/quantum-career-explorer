@@ -60,6 +60,8 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+  overflow: hidden;
   padding: 12px 24px;
   border-radius: 100px;
   font-size: .9rem;
@@ -72,13 +74,32 @@ body {
   white-space: nowrap;
 }
 .btn-primary {
-  background: var(--accent);
+  background: var(--qw-orange);
   color: #fff;
-  box-shadow: 0 4px 18px rgba(227,83,15,.30);
+  border: 1.5px solid var(--qw-orange);
+  box-shadow: 0 0 0 0 rgba(227,83,15,0), 0 4px 18px rgba(227,83,15,.30);
+  transition: background .22s ease, box-shadow .22s ease, transform .22s ease;
 }
-.btn-primary:hover { background: #c44509; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(227,83,15,.40); }
-.btn-ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--surface-3); }
-.btn-ghost:hover { background: var(--surface-2); }
+.btn-primary:hover {
+  background: var(--qw-orange-2);
+  border-color: var(--qw-orange-2);
+  transform: translateY(-2px);
+  box-shadow: 0 0 18px 4px rgba(255,117,0,.45), 0 6px 28px rgba(227,83,15,.35);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--qw-dark-blue);
+  border: 1.5px solid var(--qw-dark-blue);
+  box-shadow: 0 0 0 0 rgba(0,59,117,0);
+  transition: background .22s ease, box-shadow .22s ease, transform .22s ease, color .22s ease;
+}
+.btn-ghost:hover {
+  background: transparent;
+  color: var(--qw-med-blue);
+  border-color: var(--qw-med-blue);
+  transform: translateY(-2px);
+  box-shadow: 0 0 16px 3px rgba(0,119,205,.30), 0 4px 18px rgba(0,119,205,.20);
+}
 .btn-sm { padding: 8px 18px; font-size: .85rem; }
 
 .section-tag {
@@ -557,12 +578,12 @@ blockquote {
 }
 
 /* ── HERO EXAMPLE ───────────────────────────────────────────── */
-.hero-example {
-  margin-top: 28px;
-  background: var(--surface-2);
-  border: 1.5px solid var(--surface-3);
-  border-radius: var(--radius);
-  padding: 16px 20px;
+.canvas-example-heading {
+  font-size: .88rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin-bottom: 10px;
+  line-height: 1.5;
 }
 .hero-example-prompt {
   display: block;
