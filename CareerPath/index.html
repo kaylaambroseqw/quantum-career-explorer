@@ -180,53 +180,12 @@
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="#9898a8" stroke-width="1.5"/><path d="M10.5 10.5 L13.5 13.5" stroke="#9898a8" stroke-width="1.5" stroke-linecap="round"/></svg>
             <span class="search-placeholder">Search roles, departments, or skills…</span>
           </div>
-          <div class="filter-pills">
-            <span class="filter-pill active">All</span>
-            <span class="filter-pill">Customer Success</span>
-            <span class="filter-pill">Sales</span>
-            <span class="filter-pill">Sales Development</span>
-            <span class="filter-pill">Product</span>
-            <span class="filter-pill">Engineering</span>
-            <span class="filter-pill">Marketing</span>
-            <span class="filter-pill">Customer Implementation &amp; Support</span>
-            <span class="filter-pill">Revenue Operations</span>
-            <span class="filter-pill">People / HR</span>
-            <span class="filter-pill">Insights</span>
-            <span class="filter-pill">Business Development</span>
+          <div class="filter-pills" id="filterPills">
+            <!-- populated by script.js from QW_DEPARTMENTS -->
           </div>
         </div>
-        <div class="role-card-grid">
-          <div class="role-card role-card-selected" data-role-id="csm">
-            <div class="role-card-dept">Customer Success</div>
-            <div class="role-card-title">Customer Success Manager</div>
-            <div class="role-card-level">Mid-Senior · IC Track</div>
-            <div class="role-card-badge">You are here</div>
-          </div>
-          <div class="role-card" data-role-id="account-manager">
-            <div class="role-card-dept">Customer Success</div>
-            <div class="role-card-title">Account Manager</div>
-            <div class="role-card-level">Mid-Level · IC Track</div>
-          </div>
-          <div class="role-card" data-role-id="senior-csm">
-            <div class="role-card-dept">Customer Success</div>
-            <div class="role-card-title">Senior Customer Success Manager</div>
-            <div class="role-card-level">Senior · IC Track</div>
-          </div>
-          <div class="role-card" data-role-id="account-executive">
-            <div class="role-card-dept">Sales</div>
-            <div class="role-card-title">Account Executive</div>
-            <div class="role-card-level">Mid-Level · IC Track</div>
-          </div>
-          <div class="role-card" data-role-id="senior-ae">
-            <div class="role-card-dept">Sales</div>
-            <div class="role-card-title">Senior Account Executive</div>
-            <div class="role-card-level">Senior · IC Track</div>
-          </div>
-          <div class="role-card" data-role-id="customer-implementation-manager">
-            <div class="role-card-dept">Customer Implementation</div>
-            <div class="role-card-title">Customer Implementation Manager</div>
-            <div class="role-card-level">Mid-Level · IC Track</div>
-          </div>
+        <div class="role-card-grid" id="roleCardGrid">
+          <!-- populated by script.js from QW_ROLES -->
         </div>
       </div>
     </div>
