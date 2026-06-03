@@ -444,55 +444,103 @@ document.addEventListener('keydown', (e) => {
 
 /* ── ROLE SELECTOR ──────────────────────────────────────────── */
 (function () {
-  const filterPills = document.querySelectorAll('.filter-pill');
-  const roleCards   = document.querySelectorAll('.role-card');
+  const pillsContainer = document.getElementById('filterPills');
+  const cardGrid       = document.getElementById('roleCardGrid');
 
-  // Filter pills
-  filterPills.forEach(pill => {
-    pill.addEventListener('click', () => {
-      filterPills.forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      const dept = pill.textContent.trim();
-      roleCards.forEach(card => {
-        const cardDept = card.querySelector('.role-card-dept')?.textContent?.trim() || '';
-        const show = dept === 'All' || cardDept === dept ||
-                     cardDept.includes(dept) || dept.includes(cardDept);
-        card.style.display = show ? '' : 'none';
-        if (show) {
-          card.style.animation = 'none';
-          requestAnimationFrame(() => {
-            card.style.animation = '';
-            card.classList.add('card-fade-in');
-          });
-        }
-      });
-    });
+  // ── Build filter pills from QW_DEPARTMENTS
+  (QW_DEPARTMENTS || ['All']).forEach((dept, i) => {
+    const pill = document.createElement('span');
+    pill.className = 'filter-pill' + (i === 0 ? ' active' : '');
+    pill.textContent = dept;
+    pillsContainer.appendChild(pill);
   });
 
-  // Selecting a role card
-  roleCards.forEach(card => {
-    card.style.cursor = 'pointer';
-    card.addEventListener('click', () => {
-      const roleId = card.dataset.roleId;
-      if (roleId) {
-        // Select state
-        roleCards.forEach(c => c.classList.remove('role-card-selected'));
-        card.classList.add('role-card-selected');
+  // ── Build role cards from QW_ROLES (sorted by dept then title)
+  const sortedRoles = Object.values(QW_ROLES).sort((a, b) => {
+    if (a.dept < b.dept) return -1;
+    if (a.dept > b.dept) return  1;
+    return a.title.localeCompare(b.title);
+  });
 
-        // Update badge
-        document.querySelectorAll('.role-card-badge').forEach(b => b.remove());
-        const badge = document.createElement('div');
-        badge.className = 'role-card-badge';
-        badge.textContent = 'You are here';
-        card.appendChild(badge);
+  sortedRoles.forEach((role, idx) => {
+    const card = document.createElement('div');
+    card.className = 'role-card';
+    card.dataset.roleId = role.id;
+    card.innerHTML = `
+      <div class="role-card-dept">${role.dept}</div>
+      <div class="role-card-title">${role.title}</div>
+      <div class="role-card-level">${role.level || ''} · ${role.track === 'Mgmt' ? 'Management Track' : 'IC Track'}</div>
+    `;
+    cardGrid.appendChild(card);
+  });
 
-        selectedRoleId = roleId;
-        updateExampleFlow(roleId);
-      } else if (QW_ROLES[card.dataset.roleId]) {
-        openModal(card.dataset.roleId);
+  // ── Wire up filter pills
+  function getCards() { return Array.from(cardGrid.querySelectorAll('.role-card')); }
+
+  pillsContainer.addEventListener('click', (e) => {
+    const pill = e.target.closest('.filter-pill');
+    if (!pill) return;
+    pillsContainer.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    const dept = pill.textContent.trim();
+    getCards().forEach(card => {
+      const cardDept = card.querySelector('.role-card-dept')?.textContent?.trim() || '';
+      const show = dept === 'All' || cardDept === dept;
+      card.style.display = show ? '' : 'none';
+      if (show) {
+        card.style.animation = 'none';
+        requestAnimationFrame(() => {
+          card.style.animation = '';
+          card.classList.add('card-fade-in');
+        });
       }
     });
   });
+
+  // ── Wire up card clicks
+  cardGrid.addEventListener('click', (e) => {
+    const card = e.target.closest('.role-card');
+    if (!card) return;
+    const roleId = card.dataset.roleId;
+
+    // Selection state
+    getCards().forEach(c => c.classList.remove('role-card-selected'));
+    card.classList.add('role-card-selected');
+    cardGrid.querySelectorAll('.role-card-badge').forEach(b => b.remove());
+    const badge = document.createElement('div');
+    badge.className = 'role-card-badge';
+    badge.textContent = 'You are here';
+    card.appendChild(badge);
+
+    selectedRoleId = roleId;
+    updateExampleFlow(roleId);
+
+    // Open modal if role data exists
+    if (QW_ROLES[roleId]) openModal(roleId);
+  });
+
+  // ── Search bar live filter
+  const searchBar = document.querySelector('.search-bar');
+  if (searchBar) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Search roles, departments, or skills…';
+    input.style.cssText = 'border:none;background:none;outline:none;font:inherit;color:inherit;width:100%;font-size:.88rem;';
+    const placeholder = searchBar.querySelector('.search-placeholder');
+    if (placeholder) placeholder.replaceWith(input);
+
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase();
+      // Reset pills
+      pillsContainer.querySelectorAll('.filter-pill').forEach((p, i) => {
+        p.classList.toggle('active', i === 0);
+      });
+      getCards().forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = !q || text.includes(q) ? '' : 'none';
+      });
+    });
+  }
 })();
 
 /* ── UPDATE EXAMPLE FLOW ─────────────────────────────────────── */
