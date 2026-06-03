@@ -35,31 +35,32 @@ let activeScenario = null;
   };
 
   // Node definitions — x/y are 0–1 fractions of canvas size
+  // Layout: vertical moves top, lateral side-to-side, cross-dept cornerwise
   const nodes = [
     {
       id: 'csm', label: 'Customer Success\nManager', sublabel: 'You · IC · Mid-Senior',
-      x: .18, y: .50, w: 148, h: 52,
+      x: .20, y: .52, w: 148, h: 52,
       bg: C.accent, border: C.accent, text: '#fff', subtext: 'rgba(255,255,255,.72)',
       current: true,
     },
     {
       id: 'senior-csm', label: 'Senior CSM', sublabel: '↑ Vertical · ~18–24 mo',
-      x: .62, y: .14, w: 138, h: 48,
+      x: .48, y: .16, w: 138, h: 48,
       bg: C.darkBlueSoft, border: C.darkBlue, text: C.darkBlue, subtext: C.medBlue,
     },
     {
       id: 'csm-manager', label: 'CSM Manager', sublabel: '↑ People Leadership',
-      x: .62, y: .38, w: 138, h: 48,
+      x: .78, y: .16, w: 138, h: 48,
       bg: C.darkBlueSoft, border: C.darkBlue, text: C.darkBlue, subtext: C.medBlue,
     },
     {
       id: 'partnership-success-manager', label: 'Partnership\nSuccess Manager', sublabel: '↔ Lateral · Same level',
-      x: .62, y: .62, w: 138, h: 48,
+      x: .78, y: .52, w: 138, h: 48,
       bg: C.medBlueSoft, border: C.medBlue, text: C.darkBlue, subtext: C.medBlue,
     },
     {
       id: 'account-executive', label: 'Account Executive', sublabel: '⟺ Cross-dept · Sales',
-      x: .62, y: .82, w: 138, h: 48,
+      x: .65, y: .84, w: 138, h: 48,
       bg: C.accentSoft, border: C.accent2, text: '#7A2700', subtext: C.accent,
     },
   ];
@@ -103,12 +104,32 @@ let activeScenario = null;
   function drawEdge(edge) {
     const a = nodeRect(nodes[edge.from]);
     const b = nodeRect(nodes[edge.to]);
-    // Exit right-center of origin, enter left-center of destination
-    const ax = a.x + a.w;
-    const ay = a.y + a.h / 2;
-    const bx = b.x;
-    const by = b.y + b.h / 2;
-    const cpx = ax + (bx - ax) * 0.5;
+    const aCx = a.x + a.w / 2, aCy = a.y + a.h / 2;
+    const bCx = b.x + b.w / 2, bCy = b.y + b.h / 2;
+    const dy = bCy - aCy;
+
+    let ax, ay, bx, by, cp1x, cp1y, cp2x, cp2y;
+
+    if (dy < -20) {
+      // Destination is above — exit top-center, enter bottom-center
+      ax = aCx; ay = a.y;
+      bx = bCx; by = b.y + b.h;
+      cp1x = ax + (bx - ax) * 0.3; cp1y = ay - 50;
+      cp2x = bx;                    cp2y = by + 50;
+    } else if (dy > 20) {
+      // Destination is below (cross-dept corner) — exit bottom-right, enter left
+      ax = a.x + a.w * 0.85; ay = a.y + a.h;
+      bx = b.x;              by = bCy;
+      cp1x = ax + 20; cp1y = ay + 30;
+      cp2x = bx - 30; cp2y = by;
+    } else {
+      // Roughly horizontal (lateral) — exit right, enter left
+      ax = a.x + a.w; ay = aCy;
+      bx = b.x;       by = bCy;
+      const cpx = ax + (bx - ax) * 0.5;
+      cp1x = cpx; cp1y = ay;
+      cp2x = cpx; cp2y = by;
+    }
 
     const colors = { vertical: C.darkBlue, lateral: C.medBlue, crossdept: C.accent };
     const dashes = { vertical: [], lateral: [5, 4], crossdept: [3, 5] };
@@ -121,13 +142,13 @@ let activeScenario = null;
     ctx.lineDashOffset = -t * (edge.type === 'vertical' ? 0.5 : 0.3);
     ctx.beginPath();
     ctx.moveTo(ax, ay);
-    ctx.bezierCurveTo(cpx, ay, cpx, by, bx, by);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, bx, by);
     ctx.stroke();
 
-    // Arrowhead
+    // Arrowhead — angle based on final bezier tangent
     ctx.globalAlpha = 0.5;
     ctx.setLineDash([]);
-    const angle = Math.atan2(by - ay, bx - ax);
+    const angle = Math.atan2(by - cp2y, bx - cp2x);
     ctx.translate(bx, by);
     ctx.rotate(angle);
     ctx.beginPath();
