@@ -233,7 +233,10 @@
 .next-step-vertical  { background: var(--accent-soft);  color: var(--accent); border-color: var(--accent-2); }
 .next-step-lateral   { background: var(--green-soft);   color: var(--green);  border-color: var(--green);    }
 .next-step-crossdept { background: #E6EDF5; color: var(--qw-dark-blue); border-color: var(--qw-med-blue); }
-.next-step-chip:hover { filter: brightness(.94); transform: translateY(-1px); }
+.next-step-chip:hover { transform: translateY(-2px); filter: none; }
+.next-step-vertical:hover  { box-shadow: 0 0 14px 3px rgba(227,83,15,.35); }
+.next-step-lateral:hover   { box-shadow: 0 0 14px 3px rgba(0,119,205,.35); }
+.next-step-crossdept:hover { box-shadow: 0 0 14px 3px rgba(0,59,117,.30); }
 
 /* ── NEXT STEPS GROUPS ──────────────────────────────────────── */
 .next-steps-group {
