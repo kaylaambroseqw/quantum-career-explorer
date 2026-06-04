@@ -298,6 +298,46 @@
   justify-content: center;
 }
 
+/* ── MODAL FOOTER ───────────────────────────────────────────── */
+.modal-footer {
+  padding: 16px 28px 24px;
+  border-top: 1px solid var(--surface-3);
+  display: flex;
+  justify-content: flex-end;
+  background: var(--surface);
+}
+.modal-explore-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 100px;
+  padding: 11px 26px;
+  font-size: .9rem;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: var(--transition);
+  letter-spacing: .01em;
+}
+.modal-explore-btn:hover {
+  background: var(--accent-2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(227,83,15,.35);
+}
+
+/* ── RESTART BUTTON ─────────────────────────────────────────── */
+.modal-restart-btn {
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  border: 1.5px solid var(--surface-3);
+}
+.modal-restart-btn:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+  transform: none;
+  box-shadow: none;
+}
+
 /* ── RESPONSIVE ─────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .modal-overlay { padding: 12px; align-items: flex-end; }
