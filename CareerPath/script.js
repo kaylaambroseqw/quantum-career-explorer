@@ -444,15 +444,60 @@ document.addEventListener('keydown', (e) => {
 
 /* ── ROLE SELECTOR ──────────────────────────────────────────── */
 (function () {
-  const pillsContainer = document.getElementById('filterPills');
+  const deptContainer  = document.getElementById('filterDept');
+  const trackContainer = document.getElementById('filterTrack');
+  const levelContainer = document.getElementById('filterLevel');
   const cardGrid       = document.getElementById('roleCardGrid');
 
-  // ── Build filter pills from QW_DEPARTMENTS
+  // ── Canonical mappings for filter dimensions
+  const TRACK_MAP = {
+    'IC': 'IC', 'IC/Lead': 'IC', 'IC/Management': 'IC',
+    'Management': 'People Leadership', 'Executive': 'People Leadership',
+  };
+  const LEVEL_MAP = {
+    'Intern': 'Intern',
+    'Entry': 'Entry', 'Entry-Mid': 'Entry',
+    'Junior': 'Junior', 'Junior-Mid': 'Junior',
+    'Mid': 'Mid-Level', 'Mid-Level': 'Mid-Level', 'Mid-Senior': 'Mid-Level', 'Specialist': 'Mid-Level',
+    'Senior': 'Senior', 'Senior/Executive': 'Senior', 'Principal': 'Senior',
+    'Lead': 'Lead', 'Team Lead': 'Lead',
+    'Manager': 'Manager', 'Manager/Lead': 'Manager', 'IC/Management': 'Manager',
+    'Senior Manager': 'Senior Manager', 'Senior Manager/Controller': 'Senior Manager', 'Senior Director': 'Senior Manager',
+    'Director': 'Director', 'Director/VP/Executive': 'Director',
+    'VP': 'VP', 'VP/Executive': 'VP',
+    'C-Suite Executive': 'Executive', 'Executive': 'Executive',
+  };
+  const LEVEL_ORDER = ['Intern','Entry','Junior','Associate','Mid-Level','Senior','Lead','Manager','Senior Manager','Director','VP','Executive'];
+  const TRACK_ORDER = ['All','IC','People Leadership'];
+
+  // Active filter state
+  let activeDept  = 'All';
+  let activeTrack = 'All';
+  let activeLevel = 'All';
+  let searchQuery = '';
+
+  // ── Build department pills
   (QW_DEPARTMENTS || ['All']).forEach((dept, i) => {
     const pill = document.createElement('span');
     pill.className = 'filter-pill' + (i === 0 ? ' active' : '');
     pill.textContent = dept;
-    pillsContainer.appendChild(pill);
+    deptContainer.appendChild(pill);
+  });
+
+  // ── Build track pills
+  TRACK_ORDER.forEach((track, i) => {
+    const pill = document.createElement('span');
+    pill.className = 'filter-pill' + (i === 0 ? ' active' : '');
+    pill.textContent = track;
+    trackContainer.appendChild(pill);
+  });
+
+  // ── Build level pills
+  ['All', ...LEVEL_ORDER].forEach((level, i) => {
+    const pill = document.createElement('span');
+    pill.className = 'filter-pill' + (i === 0 ? ' active' : '');
+    pill.textContent = level;
+    levelContainer.appendChild(pill);
   });
 
   // ── Build role cards from QW_ROLES (sorted by dept then title)
@@ -462,40 +507,58 @@ document.addEventListener('keydown', (e) => {
     return a.title.localeCompare(b.title);
   });
 
-  sortedRoles.forEach((role, idx) => {
+  sortedRoles.forEach(role => {
+    const canonicalTrack = TRACK_MAP[role.track] || 'IC';
+    const canonicalLevel = LEVEL_MAP[role.level] || role.level || '';
+    const trackLabel = canonicalTrack === 'People Leadership' ? 'People Leadership' : 'IC Track';
+
     const card = document.createElement('div');
     card.className = 'role-card';
-    card.dataset.roleId = role.id;
+    card.dataset.roleId    = role.id;
+    card.dataset.dept      = role.dept || '';
+    card.dataset.track     = canonicalTrack;
+    card.dataset.level     = canonicalLevel;
     card.innerHTML = `
       <div class="role-card-dept">${role.dept}</div>
       <div class="role-card-title">${role.title}</div>
-      <div class="role-card-level">${role.level || ''} · ${role.track === 'Mgmt' ? 'Management Track' : 'IC Track'}</div>
+      <div class="role-card-level">${role.level || ''} · ${trackLabel}</div>
     `;
     cardGrid.appendChild(card);
   });
 
-  // ── Wire up filter pills
+  // ── Apply all filters
   function getCards() { return Array.from(cardGrid.querySelectorAll('.role-card')); }
 
-  pillsContainer.addEventListener('click', (e) => {
-    const pill = e.target.closest('.filter-pill');
-    if (!pill) return;
-    pillsContainer.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
-    pill.classList.add('active');
-    const dept = pill.textContent.trim();
+  function applyFilters() {
     getCards().forEach(card => {
-      const cardDept = card.querySelector('.role-card-dept')?.textContent?.trim() || '';
-      const show = dept === 'All' || cardDept === dept;
+      const matchDept  = activeDept  === 'All' || card.dataset.dept  === activeDept;
+      const matchTrack = activeTrack === 'All' || card.dataset.track === activeTrack;
+      const matchLevel = activeLevel === 'All' || card.dataset.level === activeLevel;
+      const matchSearch = !searchQuery || card.textContent.toLowerCase().includes(searchQuery);
+      const show = matchDept && matchTrack && matchLevel && matchSearch;
       card.style.display = show ? '' : 'none';
       if (show) {
         card.style.animation = 'none';
-        requestAnimationFrame(() => {
-          card.style.animation = '';
-          card.classList.add('card-fade-in');
-        });
+        requestAnimationFrame(() => { card.style.animation = ''; card.classList.add('card-fade-in'); });
       }
     });
-  });
+  }
+
+  // ── Wire up pill containers
+  function makePillHandler(container, setter) {
+    container.addEventListener('click', (e) => {
+      const pill = e.target.closest('.filter-pill');
+      if (!pill) return;
+      container.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      setter(pill.textContent.trim());
+      applyFilters();
+    });
+  }
+
+  makePillHandler(deptContainer,  v => activeDept  = v);
+  makePillHandler(trackContainer, v => activeTrack = v);
+  makePillHandler(levelContainer, v => activeLevel = v);
 
   // ── Wire up card clicks
   cardGrid.addEventListener('click', (e) => {
@@ -503,7 +566,6 @@ document.addEventListener('keydown', (e) => {
     if (!card) return;
     const roleId = card.dataset.roleId;
 
-    // Selection state
     getCards().forEach(c => c.classList.remove('role-card-selected'));
     card.classList.add('role-card-selected');
     cardGrid.querySelectorAll('.role-card-badge').forEach(b => b.remove());
@@ -515,7 +577,6 @@ document.addEventListener('keydown', (e) => {
     selectedRoleId = roleId;
     updateExampleFlow(roleId);
 
-    // Open modal if role data exists
     if (QW_ROLES[roleId]) openModal(roleId);
   });
 
@@ -530,15 +591,8 @@ document.addEventListener('keydown', (e) => {
     if (placeholder) placeholder.replaceWith(input);
 
     input.addEventListener('input', () => {
-      const q = input.value.toLowerCase();
-      // Reset pills
-      pillsContainer.querySelectorAll('.filter-pill').forEach((p, i) => {
-        p.classList.toggle('active', i === 0);
-      });
-      getCards().forEach(card => {
-        const text = card.textContent.toLowerCase();
-        card.style.display = !q || text.includes(q) ? '' : 'none';
-      });
+      searchQuery = input.value.toLowerCase();
+      applyFilters();
     });
   }
 })();
