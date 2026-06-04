@@ -311,7 +311,7 @@ let activeScenario = null;
 })();
 
 /* ── MODAL SYSTEM ───────────────────────────────────────────── */
-function buildModalHTML(roleId) {
+function buildModalHTML(roleId, mode = 'explore') {
   const role = QW_ROLES[roleId];
   if (!role) return '';
 
@@ -389,10 +389,175 @@ function buildModalHTML(roleId) {
         ${nextStepsHTML()}
       </div>
     </div>
+
+    <div class="modal-footer">
+      ${mode === 'plan'
+        ? `<button class="modal-explore-btn modal-plan-btn" onclick="openDevPlanner('${roleId}')">Let's plan →</button>`
+        : mode === 'restart'
+          ? `<button class="modal-explore-btn modal-restart-btn" onclick="startOver()">← Let's start over</button>`
+          : `<button class="modal-explore-btn" onclick="exploreRole('${roleId}')">Let's explore →</button>`
+      }
+    </div>
   `;
 }
 
-function openModal(roleId) {
+function exploreRole(roleId) {
+  closeModal();
+  selectedRoleId = roleId;
+  renderStep2(roleId);
+}
+
+function startOver() {
+  closeModal();
+  selectedRoleId = null;
+  selectedTargetRoleId = null;
+  // Hide downstream steps
+  ['step2', 'step3', 'step4'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  // Clear selected card state
+  document.querySelectorAll('.role-card-selected').forEach(c => c.classList.remove('role-card-selected'));
+  document.querySelectorAll('.role-card-badge').forEach(b => b.remove());
+  // Scroll to Step 1
+  const step1 = document.getElementById('experience');
+  if (step1) step1.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+let selectedTargetRoleId = null;
+
+function openDevPlanner(targetRoleId) {
+  closeModal();
+  selectedTargetRoleId = targetRoleId;
+  renderDevPlanner(selectedRoleId, targetRoleId);
+}
+
+/* ── STEP 4: DEVELOPMENT PLANNER ───────────────────────────── */
+function renderDevPlanner(sourceId, targetId) {
+  const source = QW_ROLES[sourceId];
+  const target = QW_ROLES[targetId];
+  const section = document.getElementById('step4');
+  if (!section || !source || !target) return;
+
+  // Determine move type
+  const moveType = (source.next?.vertical || []).includes(targetId) ? 'vertical'
+    : (source.next?.lateral || []).includes(targetId) ? 'lateral'
+    : 'crossDept';
+
+  // Update header
+  document.getElementById('dpSourceRole').textContent = source.title;
+  document.getElementById('dpTargetRole').textContent = target.title;
+  document.getElementById('dpMilestoneRole').textContent = target.title;
+
+  // ── Skill gap — deterministic % based on competency + source overlap
+  function hashPct(str, base, range) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    return base + (h % range);
+  }
+  const sourceCompSet = new Set((source.competencies || []).map(c => c.split(' ')[0].toLowerCase()));
+  const gapRows = (target.competencies || []).slice(0, 6).map(comp => {
+    const keyword = comp.split(' ')[0].toLowerCase();
+    const overlap = sourceCompSet.has(keyword);
+    const pct = overlap ? hashPct(comp + sourceId, 62, 28) : hashPct(comp + sourceId, 18, 38);
+    const cls  = pct >= 65 ? 'skill-bar-high' : pct >= 40 ? 'skill-bar-med' : 'skill-bar-low';
+    const label = pct >= 65 ? 'Strong' : pct >= 40 ? 'Developing' : 'Gap';
+    return `<div class="skill-bar-row">
+      <span class="skill-name">${comp}</span>
+      <div class="skill-bar-track"><div class="skill-bar-fill ${cls}" style="--w:${pct}%"></div></div>
+      <span class="skill-pct skill-pct-${cls.replace('skill-bar-','')}">${pct}%</span>
+    </div>`;
+  }).join('');
+  document.getElementById('dpSkillGap').innerHTML = gapRows || '<p style="color:var(--ink-faint);font-style:italic">No competency data for this role yet.</p>';
+
+  // ── Manager conversation starters
+  const targetDept  = target.dept || '';
+  const targetTitle = target.title;
+  const starters = {
+    vertical: [
+      `"I'd like to discuss what it would take to grow into ${targetTitle} — what would you want to see from me over the next 12–18 months?"`,
+      `"What competencies should I prioritize right now to be ready for the ${targetTitle} expectations?"`,
+      `"Can we build a development plan together that maps directly to the ${targetTitle} role?"`,
+      `"How am I tracking on the skills that matter most for leveling up into ${targetTitle}?"`,
+    ],
+    lateral: [
+      `"I've been thinking about a lateral move to ${targetTitle}. Would you help me evaluate whether my skills translate well?"`,
+      `"What would a transition to ${targetTitle} realistically look like, and how long does it typically take?"`,
+      `"Are there stretch projects that could give me hands-on exposure to the ${targetDept} team?"`,
+      `"I want to make sure a move to ${targetTitle} sets me up for long-term growth — what would you suggest I learn first?"`,
+    ],
+    crossDept: [
+      `"I've been thinking about how my skills could transfer to ${targetTitle} in ${targetDept}. Can we explore that together?"`,
+      `"What would I need to demonstrate in my current role to be a strong candidate for ${targetTitle}?"`,
+      `"Are there cross-functional projects where I could work alongside the ${targetDept} team?"`,
+      `"I'd love to build a 12-month roadmap toward ${targetTitle}. Can we start that conversation?"`,
+    ],
+  };
+  const starterList = starters[moveType] || starters.vertical;
+  document.getElementById('dpConvoStarters').innerHTML = starterList
+    .map(s => `<div class="dp-convo-item">${s}</div>`).join('');
+
+  // ── Milestones
+  const milestones = (target.milestones || []).slice(0, 5);
+  document.getElementById('dpMilestones').innerHTML = milestones.length
+    ? milestones.map(m => `<li>${m}</li>`).join('')
+    : '<li style="color:var(--ink-faint);font-style:italic">Milestones not mapped yet for this role.</li>';
+
+  // ── Action buttons
+  const bookmarkBtn = document.getElementById('dpBookmark');
+  const saveBtn     = document.getElementById('dpSave');
+  const exportBtn   = document.getElementById('dpExport');
+
+  if (bookmarkBtn) {
+    let bookmarked = false;
+    bookmarkBtn.onclick = () => {
+      bookmarked = !bookmarked;
+      bookmarkBtn.textContent = bookmarked ? '✓ Bookmarked' : '🔖 Bookmark this role';
+      bookmarkBtn.classList.toggle('dp-action-done', bookmarked);
+    };
+  }
+  if (saveBtn) {
+    let saved = false;
+    saveBtn.onclick = () => {
+      saved = !saved;
+      saveBtn.textContent = saved ? '✓ Pathway saved — click to unsave' : '💾 Save this pathway';
+      saveBtn.classList.toggle('dp-action-done', saved);
+    };
+  }
+  if (exportBtn) exportBtn.onclick = () => {
+    const lines = [
+      `DEVELOPMENT PLAN — ${source.title} → ${target.title}`,
+      `Generated: ${new Date().toLocaleDateString()}`,
+      '',
+      '── GOAL ──',
+      `Move from ${source.title} to ${target.title} (${moveType === 'vertical' ? 'Vertical' : moveType === 'lateral' ? 'Lateral' : 'Cross-Department'} path)`,
+      '',
+      '── MILESTONES ──',
+      ...(target.milestones || []).slice(0, 5).map(m => `• ${m}`),
+      '',
+      '── COMPETENCIES TO DEVELOP ──',
+      ...(target.competencies || []).slice(0, 6).map(c => `• ${c}`),
+      '',
+      '── CONVERSATION STARTER ──',
+      starterList[0].replace(/^"|"$/g, ''),
+    ].join('\n');
+    navigator.clipboard?.writeText(lines).then(() => {
+      exportBtn.textContent = '✓ Copied to clipboard';
+      exportBtn.classList.add('dp-action-done');
+      setTimeout(() => {
+        exportBtn.textContent = '📤 Export goals to manager';
+
+        exportBtn.classList.remove('dp-action-done');
+      }, 3000);
+    });
+  };
+
+  // Show and scroll
+  section.style.display = '';
+  requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+
+function openModal(roleId, mode = 'explore') {
   const role = QW_ROLES[roleId];
   if (!role) return;
 
@@ -407,7 +572,7 @@ function openModal(roleId) {
     document.body.appendChild(overlay);
   }
 
-  overlay.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true">${buildModalHTML(roleId)}</div>`;
+  overlay.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true">${buildModalHTML(roleId, mode)}</div>`;
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
   activeModal = roleId;
@@ -523,25 +688,57 @@ document.addEventListener('keydown', (e) => {
       <div class="role-card-title">${role.title}</div>
       <div class="role-card-level">${role.level || ''} · ${trackLabel}</div>
     `;
+    card.dataset.matches = '1'; // default: all visible before any filter
     cardGrid.appendChild(card);
   });
 
   // ── Apply all filters
   function getCards() { return Array.from(cardGrid.querySelectorAll('.role-card')); }
 
+  const CARDS_PER_PAGE = 12;
+  let visibleCount = CARDS_PER_PAGE;
+  const loadMoreWrap  = document.getElementById('loadMoreWrap');
+  const loadMoreBtn   = document.getElementById('loadMoreBtn');
+  const loadMoreCount = document.getElementById('loadMoreCount');
+
+  function updatePagination() {
+    const cards = getCards();
+    const matching = cards.filter(c => c.dataset.matches === '1');
+    const total = matching.length;
+    matching.forEach((c, i) => {
+      c.style.display = i < visibleCount ? '' : 'none';
+    });
+    const showing = Math.min(visibleCount, total);
+    if (total > CARDS_PER_PAGE) {
+      loadMoreWrap.style.display = 'flex';
+      loadMoreCount.textContent = `Showing ${showing} of ${total} roles`;
+      loadMoreBtn.style.display = showing >= total ? 'none' : '';
+    } else {
+      loadMoreWrap.style.display = 'none';
+    }
+  }
+
+  loadMoreBtn?.addEventListener('click', () => {
+    visibleCount += CARDS_PER_PAGE;
+    updatePagination();
+  });
+
   function applyFilters() {
+    visibleCount = CARDS_PER_PAGE;
     getCards().forEach(card => {
       const matchDept  = activeDept  === 'All' || card.dataset.dept  === activeDept;
       const matchTrack = activeTrack === 'All' || card.dataset.track === activeTrack;
       const matchLevel = activeLevel === 'All' || card.dataset.level === activeLevel;
       const matchSearch = !searchQuery || card.textContent.toLowerCase().includes(searchQuery);
       const show = matchDept && matchTrack && matchLevel && matchSearch;
+      card.dataset.matches = show ? '1' : '0';
       card.style.display = show ? '' : 'none';
       if (show) {
         card.style.animation = 'none';
         requestAnimationFrame(() => { card.style.animation = ''; card.classList.add('card-fade-in'); });
       }
     });
+    updatePagination();
   }
 
   // ── Wire up pill containers
@@ -575,9 +772,12 @@ document.addEventListener('keydown', (e) => {
     card.appendChild(badge);
 
     selectedRoleId = roleId;
-    updateExampleFlow(roleId);
-
-    if (QW_ROLES[roleId]) openModal(roleId);
+    // Hide downstream steps when picking a new starting role
+    const s2 = document.getElementById('step2');
+    const s3 = document.getElementById('step3');
+    if (s2) s2.style.display = 'none';
+    if (s3) s3.style.display = 'none';
+    openModal(roleId);
   });
 
   // ── Search bar live filter
@@ -593,108 +793,519 @@ document.addEventListener('keydown', (e) => {
     input.addEventListener('input', () => {
       searchQuery = input.value.toLowerCase();
       applyFilters();
+      updatePagination();
     });
   }
+
+  // ── Initial pagination render
+  updatePagination();
 })();
 
-/* ── UPDATE EXAMPLE FLOW ─────────────────────────────────────── */
-function updateExampleFlow(roleId) {
+/* ── STEP 2: PATH CHOICE ────────────────────────────────────── */
+function getAspirationContent(pathType, sourceRole, targetIds) {
+  const targets = targetIds.map(id => QW_ROLES[id]).filter(Boolean);
+  if (!targets.length) return null;
+
+  const TRACK_MAP_LOCAL = { 'IC':'IC','IC/Lead':'IC','IC/Management':'IC','Management':'People Leadership','Executive':'People Leadership' };
+  const hasMgmt   = targets.some(r => TRACK_MAP_LOCAL[r.track] === 'People Leadership');
+  const targetDepts = [...new Set(targets.map(r => r.dept))];
+  const firstLevel  = targets[0]?.level || '';
+
+  const prompts = {
+    vertical: {
+      icon: '↑', label: 'Grow in your role',
+      text() {
+        if (hasMgmt && targets.some(r => TRACK_MAP_LOCAL[r.track] === 'IC'))
+          return "You're ready to level up — whether by leading people or going deeper in your craft.";
+        if (hasMgmt)
+          return "You enjoy developing others and are ready to build, coach, and lead a team.";
+        if (/Director/i.test(firstLevel))
+          return "You're ready to own strategy, lead cross-functional decisions, and drive department-level impact.";
+        if (/VP|Executive|C-Suite/i.test(firstLevel))
+          return "You want to operate at the organizational level and shape where the company is headed.";
+        if (/Senior|Principal|Lead/i.test(firstLevel))
+          return "You want deeper expertise, bigger accounts or projects, and to be the go-to in your domain.";
+        return "You're ready for expanded scope, greater ownership, and more complex challenges.";
+      }
+    },
+    lateral: {
+      icon: '↔', label: 'Try something adjacent',
+      text() {
+        const dept = targetDepts[0] || '';
+        if (dept.includes('Implementation'))
+          return "You're drawn to the onboarding and technical setup side of the customer journey.";
+        if (dept.includes('Partner') || dept.includes('Business Development'))
+          return "You love building relationships and want to expand that into an ecosystem or partner model.";
+        if (dept.includes('Support'))
+          return "You want to support customers across a broader surface area with diverse issues.";
+        return "You want to try a parallel path that uses your strengths in a fresh context — same level, new perspective.";
+      }
+    },
+    crossDept: {
+      icon: '⟺', label: 'Make a bold move',
+      text() {
+        if (targetDepts.some(d => d.includes('Sales')))
+          return "You want more strategic work but less day-to-day client interaction — you're drawn to winning new business.";
+        if (targetDepts.some(d => d.includes('Product')))
+          return "You're passionate about what gets built, not just how it's delivered — you want a seat at the roadmap table.";
+        if (targetDepts.some(d => d.includes('Marketing')))
+          return "You want to shape how the world sees Quantum Workplace — telling the story at scale.";
+        if (targetDepts.some(d => d.includes('Customer Success')))
+          return "You want to own long-term customer relationships and be accountable for their outcomes.";
+        if (targetDepts.some(d => d.includes('People') || d.includes('HR')))
+          return "You care deeply about culture and employee experience — you want to impact the org from the inside out.";
+        if (targetDepts.some(d => d.includes('Insights') || d.includes('Analytics')))
+          return "You want to get closer to the data and surface insights that drive smarter decisions.";
+        if (targetDepts.some(d => d.includes('Technology') || d.includes('Engineering')))
+          return "You're drawn to solving problems at the product and systems level — you want to build.";
+        if (targetDepts.some(d => d.includes('Business Development') || d.includes('Partner')))
+          return "You want to explore strategic growth opportunities and build ecosystem-level relationships.";
+        return "You want to bring your skills to a completely different part of the business and start fresh.";
+      }
+    }
+  };
+
+  const cfg = prompts[pathType];
+  if (!cfg) return null;
+  return { icon: cfg.icon, label: cfg.label, text: cfg.text(), targetIds };
+}
+
+function renderStep2(roleId) {
   const role = QW_ROLES[roleId];
-  if (!role) return;
+  const section   = document.getElementById('step2');
+  const roleName  = document.getElementById('step2RoleName');
+  const grid      = document.getElementById('pathCardsGrid');
+  if (!section || !grid || !role) return;
 
-  // Update "current role" node
-  const currentNode = document.querySelector('.flow-node-current .flow-node-title');
-  if (currentNode) currentNode.textContent = role.fullTitle;
+  // Update heading
+  roleName.textContent = role.title;
 
-  // Update branch nodes
-  const branchContainer = document.querySelector('.flow-branches');
-  if (!branchContainer) return;
-
+  // Build path definitions
   const { vertical = [], lateral = [], crossDept = [] } = role.next || {};
-  const allNext = [
-    ...vertical.map(id  => ({ id, type: 'vertical',  icon: '↑', label: 'Vertical'   })),
-    ...lateral.map(id   => ({ id, type: 'lateral',   icon: '↔', label: 'Lateral'    })),
-    ...crossDept.map(id => ({ id, type: 'crossdept', icon: '⟺', label: 'Cross-Dept' })),
+  const pathDefs = [
+    { type: 'vertical',  cssClass: 'path-card-vertical',  ids: vertical  },
+    { type: 'lateral',   cssClass: 'path-card-lateral',   ids: lateral   },
+    { type: 'crossDept', cssClass: 'path-card-crossdept', ids: crossDept },
   ];
 
-  if (!allNext.length) {
-    branchContainer.innerHTML = `<p style="color:var(--ink-faint);font-size:.9rem;">Highest level in this track.</p>`;
-    return;
+  grid.innerHTML = '';
+
+  {
+    grid.className = 'path-cards-grid cols-3';
+
+    pathDefs.forEach(({ type, cssClass, ids }) => {
+      const content = getAspirationContent(type, role, ids);
+      if (!content) {
+        // Show empty state card
+        const emptyMessages = {
+          vertical:  "We're still charting the upward path for this role — check back soon.",
+          lateral:   "We're still mapping the lateral moves from here — more coming soon.",
+          crossDept: "Cross-department paths for this role are still being explored.",
+        };
+        const icons  = { vertical: '↑', lateral: '↔', crossDept: '⟺' };
+        const labels = { vertical: 'Grow in your role', lateral: 'Try something adjacent', crossDept: 'Make a bold move' };
+        const card = document.createElement('div');
+        card.className = `path-card ${cssClass} path-card-empty-state`;
+        card.innerHTML = `
+          <div class="path-card-header">
+            <div class="path-card-icon">${icons[type]}</div>
+            <span class="path-card-type-label">${labels[type]}</span>
+          </div>
+          <p class="path-card-prompt path-card-coming-soon">${emptyMessages[type]}</p>
+          <p class="path-card-placeholder-note">This path isn't mapped yet — but your career definitely has one.</p>
+        `;
+        grid.appendChild(card);
+        return;
+      }
+
+      const card = document.createElement('div');
+      card.className = `path-card ${cssClass}`;
+      card.dataset.pathType = type;
+
+      // Role chips — display only, not clickable
+      const chipsHTML = content.targetIds.map(id => {
+        const target = QW_ROLES[id];
+        if (!target) return '';
+        return `<span class="path-role-chip">${target.title}</span>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="path-card-header">
+          <div class="path-card-icon">${content.icon}</div>
+          <span class="path-card-type-label">${content.label}</span>
+        </div>
+        <p class="path-card-prompt">${content.text}</p>
+        <div class="path-card-roles">${chipsHTML}</div>
+      `;
+
+      // Card click → toggle active state
+      card.addEventListener('click', (e) => {
+        // Card body click → toggle selected state
+        const wasActive = card.classList.contains('path-card-active');
+        grid.querySelectorAll('.path-card').forEach(c => c.classList.remove('path-card-active'));
+        if (!wasActive) {
+          card.classList.add('path-card-active');
+          const pt = card.dataset.pathType;
+          renderConstellation(selectedRoleId, pt);
+          syncConstellationFilter(pt);
+        } else {
+          renderConstellation(selectedRoleId, null);
+          syncConstellationFilter(null);
+        }
+      });
+
+      grid.appendChild(card);
+    });
   }
 
-  branchContainer.innerHTML = allNext.map(n => {
-    const title = QW_ROLES[n.id]?.title || n.id;
-    const cssType = n.type === 'crossdept' ? 'crossdept' : n.type;
-    return `
-      <div class="flow-branch">
-        <div class="flow-node flow-node-${cssType} flow-node-clickable" data-role-id="${n.id}" tabindex="0" role="button" aria-label="View ${title}">
-          <div class="flow-node-move-type">${n.icon} ${n.label}</div>
-          <div class="flow-node-title">${title}</div>
-        </div>
-      </div>`;
-  }).join('');
-
-  // Wire up click handlers on new nodes
-  branchContainer.querySelectorAll('.flow-node-clickable').forEach(node => {
-    const rId = node.dataset.roleId;
-    const handler = () => { if (rId && QW_ROLES[rId]) openModal(rId); };
-    node.addEventListener('click', handler);
-    node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') handler(); });
+  // Show section and scroll to it
+  section.style.display = '';
+  requestAnimationFrame(() => {
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 }
 
-/* ── STATIC FLOW NODE CLICK HANDLERS (initial HTML) ─────────── */
-document.addEventListener('DOMContentLoaded', () => {
-  // Make static flow nodes clickable
-  document.querySelectorAll('.flow-node[data-role-id]').forEach(node => {
+/* ── SYNC CONSTELLATION FILTER BUTTONS ──────────────────────── */
+function syncConstellationFilter(type) {
+  const bar = document.getElementById('cFilterBar');
+  if (!bar) return;
+  bar.querySelectorAll('.c-filter-btn').forEach(b => {
+    b.classList.toggle('active', (b.dataset.type || null) === type);
+  });
+}
+
+/* ── STEP 3: CONSTELLATION MAP ──────────────────────────────── */
+function renderConstellation(roleId, highlightType) {
+  const role = QW_ROLES[roleId];
+  const section = document.getElementById('step3');
+  const stage   = document.getElementById('constellationStage');
+  const heading = document.getElementById('step3Heading');
+  if (!section || !stage || !role) return;
+
+  if (heading) heading.textContent = `Every path from ${role.title}.`;
+
+  const { vertical = [], lateral = [], crossDept = [] } = role.next || {};
+  const W = 960, H = 640;
+  const cx = W / 2, cy = H / 2;
+  const R  = 240; // orbit radius — wider to accommodate taller pills
+  const NR = 46;  // node circle radius (legacy, unused for pills)
+  const CR = 58;  // center circle radius
+
+  // Type config (light-mode palette) — vertical=orange, lateral=light-blue, crossDept=dark-blue
+  const T = {
+    vertical:  { stroke: '#E3530F', glow: 'rgba(227,83,15,.55)',  fill: '#FEF0E7', dash: '',      icon: '↑', label: 'Vertical'    },
+    lateral:   { stroke: '#62B6F3', glow: 'rgba(98,182,243,.60)', fill: '#EAF4FD', dash: '6 4',   icon: '↔', label: 'Lateral'     },
+    crossDept: { stroke: '#003B75', glow: 'rgba(0,59,117,.45)',   fill: '#E6EDF5', dash: '2.5 4', icon: '⟺', label: 'Cross-Dept' },
+  };
+
+  // Pill dimensions computed per-node based on text length (see buildNodes)
+
+  // Angle calculator: group each type into arcs
+  function arcAngles(type, count) {
+    if (count === 0) return [];
+    // Vertical: spread around top (270°)
+    if (type === 'vertical') {
+      const spread = count === 1 ? 0 : Math.min(55, 80 / (count - 1));
+      return Array.from({ length: count }, (_, i) => 270 + (i - (count - 1) / 2) * spread);
+    }
+    // Lateral: alternate left (180°) and right (0°/360°)
+    if (type === 'lateral') {
+      if (count === 1) return [185];
+      if (count === 2) return [185, 355];
+      const half = Math.ceil(count / 2);
+      return Array.from({ length: count }, (_, i) =>
+        i < half ? 180 + (i + 1) * 15 : 360 - (i - half + 1) * 15
+      );
+    }
+    // Cross-dept: spread around bottom (90°)
+    const spread = count === 1 ? 0 : Math.min(55, 80 / (count - 1));
+    return Array.from({ length: count }, (_, i) => 90 + (i - (count - 1) / 2) * spread);
+  }
+
+  // Compute dynamic pill width/height per node from its text content
+  function pillDims(lines) {
+    const maxChars = Math.max(...lines.map(l => l.length));
+    const pw = Math.max(130, Math.min(205, maxChars * 8 + 48)); // ~8px/char + padding
+    const ph = lines.length > 1 ? 86 : 72; // taller if 2-line title
+    return { pw, ph };
+  }
+
+  // Build path nodes with x/y positions and per-node pill dimensions
+  const buildNodes = (ids, type) =>
+    arcAngles(type, ids.length).map((deg, i) => {
+      const rad = deg * Math.PI / 180;
+      const role = QW_ROLES[ids[i]];
+      if (!role) return null;
+      const lines = wrapTitle(role.title, 14).slice(0, 2);
+      const { pw, ph } = pillDims(lines);
+      return {
+        id: ids[i], type,
+        x: cx + R * Math.cos(rad),
+        y: cy + R * Math.sin(rad),
+        aboveCenter: Math.sin(rad) < -0.25,
+        role, lines, pw, ph,
+      };
+    }).filter(n => n);
+
+  const pathNodes = [
+    ...buildNodes(vertical, 'vertical'),
+    ...buildNodes(lateral,  'lateral'),
+    ...buildNodes(crossDept,'crossDept'),
+  ];
+
+  // Text wrapper for SVG
+  function wrapTitle(text, maxLen = 12) {
+    const words = text.split(' ');
+    const lines = []; let cur = '';
+    for (const w of words) {
+      const test = cur ? cur + ' ' + w : w;
+      if (test.length <= maxLen) { cur = test; }
+      else { if (cur) lines.push(cur); cur = w; }
+    }
+    if (cur) lines.push(cur);
+    return lines.slice(0, 3);
+  }
+
+  // Build SVG text lines for a label
+  function labelSVG(x, y, text, above, color) {
+    const lines = wrapTitle(text);
+    const lh = 13;
+    const startY = above ? y - NR - 10 - (lines.length - 1) * lh : y + NR + 16;
+    return lines.map((l, i) =>
+      `<text x="${x.toFixed(1)}" y="${(startY + i * lh).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="11" font-family="Inter,sans-serif" font-weight="500" opacity="0.9">${l}</text>`
+    ).join('');
+  }
+
+  // Center label — role title (white, bold), vertically centered in circle
+  function centerLabelSVG() {
+    const lines = wrapTitle(role.title, 12);
+    const lh = 14;
+    const titleH = (lines.length - 1) * lh;
+    return lines.map((l, i) =>
+      `<text x="${cx}" y="${(cy - titleH / 2 + i * lh + 4).toFixed(1)}" text-anchor="middle" fill="#FFFFFF" font-size="11.5" font-family="Inter,sans-serif" font-weight="700">${l}</text>`
+    ).join('');
+  }
+
+  // Pseudo-random stars seeded by roleId
+  function pseudoRand(seed) {
+    let s = seed;
+    return () => { s = (s * 16807 + 0) % 2147483647; return (s - 1) / 2147483646; };
+  }
+  const rand = pseudoRand(roleId.split('').reduce((a, c) => a + c.charCodeAt(0), 0));
+  const stars = Array.from({ length: 50 }, () => ({
+    x: (rand() * W).toFixed(1), y: (rand() * H).toFixed(1),
+    r: (rand() * 1.3 + 0.4).toFixed(2), o: (rand() * 0.45 + 0.12).toFixed(2),
+  }));
+
+  // Distance from pill-center to pill-edge in direction (dx,dy)
+  function pillEdgeDist(dx, dy, pw, ph) {
+    const len = Math.hypot(dx, dy);
+    if (len === 0) return pw / 2;
+    const ux = Math.abs(dx / len), uy = Math.abs(dy / len);
+    const tx = ux > 0 ? (pw / 2) / ux : Infinity;
+    const ty = uy > 0 ? (ph / 2) / uy : Infinity;
+    return Math.min(tx, ty);
+  }
+
+  // Line from center circle to pill node
+  function lineSVG(n) {
+    const cfg = T[n.type];
+    const isHL = !highlightType || n.type === highlightType;
+    const dx = n.x - cx, dy = n.y - cy;
+    const len = Math.hypot(dx, dy);
+    const edgeDist = pillEdgeDist(dx, dy, n.pw, n.ph);
+    const x1 = (cx + dx * (CR / len)).toFixed(1);
+    const y1 = (cy + dy * (CR / len)).toFixed(1);
+    const x2 = (cx + dx * ((len - edgeDist) / len)).toFixed(1);
+    const y2 = (cy + dy * ((len - edgeDist) / len)).toFixed(1);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${cfg.stroke}" stroke-width="${isHL ? 1.8 : 0.8}" opacity="${isHL ? 0.55 : 0.12}" stroke-dasharray="${cfg.dash}"/>`;
+  }
+
+  // Pill-shaped node with icon + bold title + dept — variable size, larger text
+  function nodeSVG(n) {
+    const cfg = T[n.type];
+    const isHL = !highlightType || n.type === highlightType;
+    const op = isHL ? 1 : 0.35;
+    const sw = isHL ? 2 : 1.2;
+    const { pw, ph, lines } = n;
+    const px = n.x - pw / 2, py = n.y - ph / 2;
+    const nx = n.x;
+    const rx = Math.min(28, ph / 2); // pill border-radius
+
+    const ICON_FS = 12, TITLE_FS = 12, DEPT_FS = 10;
+    const lh = 15; // line height
+    const gap = 4;
+
+    // Vertically center: icon row + title rows + dept row
+    const rowCount = 1 + lines.length + 1;
+    const blockH   = rowCount * lh + (rowCount - 1) * gap;
+    const blockTop = py + (ph - blockH) / 2;
+
+    const iconY   = (blockTop + lh * 0.82).toFixed(1);
+    const titleRows = lines.map((l, i) => {
+      const y = (blockTop + (i + 1) * (lh + gap) + lh * 0.82).toFixed(1);
+      return `<text x="${nx.toFixed(1)}" y="${y}" text-anchor="middle" fill="${cfg.stroke}" font-size="${TITLE_FS}" font-family="Inter,sans-serif" font-weight="700">${l}</text>`;
+    }).join('');
+    const deptY = (blockTop + (lines.length + 1) * (lh + gap) + lh * 0.82).toFixed(1);
+
+    return `
+    <g class="c-node c-node-${n.type}" data-role-id="${n.id}" data-color="${cfg.stroke}" data-glow="${cfg.glow}" tabindex="0" role="button" aria-label="View ${n.role.title}" style="cursor:pointer;opacity:${op}">
+      <rect class="c-node-halo" x="${(px - 10).toFixed(1)}" y="${(py - 10).toFixed(1)}" width="${pw + 20}" height="${ph + 20}" rx="${rx + 10}" fill="none" stroke="${cfg.stroke}" stroke-width="1" opacity="${isHL ? 0.22 : 0}"/>
+      <rect class="c-node-pill" x="${px.toFixed(1)}" y="${py.toFixed(1)}" width="${pw}" height="${ph}" rx="${rx}" fill="${cfg.fill}" stroke="${cfg.stroke}" stroke-width="${sw}"/>
+      <text x="${nx.toFixed(1)}" y="${iconY}" text-anchor="middle" fill="${cfg.stroke}" font-size="${ICON_FS}" font-family="Inter,system-ui,sans-serif" font-weight="700">${cfg.icon}</text>
+      ${titleRows}
+      <text x="${nx.toFixed(1)}" y="${deptY}" text-anchor="middle" fill="${cfg.stroke}" font-size="${DEPT_FS}" font-family="Inter,sans-serif" font-weight="400" opacity="0.7">${n.role.dept}</text>
+    </g>`;
+  }
+
+  const svgHTML = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;border-radius:16px;border:1.5px solid #62B6F3" role="img" aria-label="Career constellation map for ${role.title}">
+  <defs>
+    <radialGradient id="c-bg" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="65%" stop-color="#F5F6FA"/>
+      <stop offset="100%" stop-color="#ECEEF4"/>
+    </radialGradient>
+    <radialGradient id="c-center-glow" cx="50%" cy="50%" r="22%">
+      <stop offset="0%" stop-color="#E3530F" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#E3530F" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow-vertical"  x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-lateral"   x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-crossDept" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-center"    x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="${W}" height="${H}" fill="url(#c-bg)" rx="16"/>
+  <rect width="${W}" height="${H}" fill="url(#c-center-glow)" rx="16"/>
+
+  <!-- Dot grid -->
+  ${stars.map(s => `<circle cx="${s.x}" cy="${s.y}" r="${s.r}" fill="#B8BCC8" opacity="${(parseFloat(s.o) * 0.6).toFixed(2)}"/>`).join('\n  ')}
+
+  <!-- Lines -->
+  ${pathNodes.map(lineSVG).join('\n  ')}
+
+  <!-- Path nodes -->
+  ${pathNodes.map(nodeSVG).join('\n  ')}
+
+  <!-- Center node (clickable) -->
+  <g class="c-center" data-role-id="${roleId}" style="cursor:pointer">
+    <circle cx="${cx}" cy="${cy}" r="${CR + 24}" fill="none" stroke="#FF7500" stroke-width="1.5" opacity="0">
+      <animate attributeName="r"       values="${CR};${CR + 50}"  dur="2.8s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.5;0"              dur="2.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="${cx}" cy="${cy}" r="${CR + 10}" fill="none" stroke="#FF7500" stroke-width="1" opacity="0">
+      <animate attributeName="r"       values="${CR};${CR + 48}"  dur="2.8s" begin="1.4s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.4;0"              dur="2.8s" begin="1.4s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="${cx}" cy="${cy}" r="${CR}" fill="#E3530F" stroke="#FF7500" stroke-width="2.5" filter="url(#glow-center)"/>
+    ${centerLabelSVG()}
+    <text x="${cx}" y="${(cy + CR - 15).toFixed(1)}" text-anchor="middle" fill="white" font-size="8.5" font-family="Inter,sans-serif" font-weight="700" letter-spacing="0.08em">YOU ARE HERE</text>
+  </g>
+</svg>`;
+
+  stage.innerHTML = svgHTML;
+
+  // Wire up path node click/keyboard/hover handlers
+  stage.querySelectorAll('.c-node').forEach(node => {
     const rId = node.dataset.roleId;
-    if (!rId) return;
-    node.style.cursor = 'pointer';
-    node.setAttribute('tabindex', '0');
-    node.setAttribute('role', 'button');
-    node.addEventListener('click', () => { if (QW_ROLES[rId]) openModal(rId); });
-    node.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { if (QW_ROLES[rId]) openModal(rId); }
+    if (!rId || !QW_ROLES[rId]) return;
+    const glowColor = node.dataset.glow || 'rgba(227,83,15,.5)';
+
+    // Click: open modal in "plan" mode (Step 3 → Development Planner)
+    const activate = () => openModal(rId, 'plan');
+    node.addEventListener('click', activate);
+    node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') activate(); });
+
+    // Hover: drop-shadow glow + dim others
+    node.addEventListener('mouseenter', () => {
+      node.style.filter = `drop-shadow(0 0 14px ${glowColor})`;
+      stage.querySelectorAll('.c-node').forEach(n => { if (n !== node) n.style.opacity = '0.3'; });
+    });
+    node.addEventListener('mouseleave', () => {
+      node.style.filter = '';
+      stage.querySelectorAll('.c-node').forEach(n => {
+        const isHL = !highlightType || n.classList.contains(`c-node-${highlightType}`);
+        n.style.opacity = isHL ? '1' : '0.35';
+      });
     });
   });
 
-  // Initial flow render
-  updateExampleFlow(selectedRoleId);
-
-  // Wire up role card "view details" on the static detail card
-  const detailCard = document.querySelector('.role-detail-card');
-  if (detailCard) {
-    const viewBtn = document.createElement('button');
-    viewBtn.className = 'btn btn-primary detail-open-btn';
-    viewBtn.textContent = 'Open full role detail →';
-    viewBtn.addEventListener('click', () => openModal('senior-csm'));
-    detailCard.appendChild(viewBtn);
+  // Wire center node: click opens role modal in "explore" mode
+  const centerNode = stage.querySelector('.c-center');
+  if (centerNode) {
+    centerNode.addEventListener('click', () => openModal(roleId, 'restart'));
+    centerNode.addEventListener('mouseenter', () => {
+      centerNode.style.filter = 'drop-shadow(0 0 18px rgba(227,83,15,.6))';
+    });
+    centerNode.addEventListener('mouseleave', () => { centerNode.style.filter = ''; });
   }
-});
 
-/* ── SCENARIO MODE ──────────────────────────────────────────── */
-(function () {
-  const prompts = document.querySelectorAll('.scenario-prompt');
-  prompts.forEach((prompt, idx) => {
-    prompt.style.cursor = 'pointer';
-    prompt.setAttribute('tabindex', '0');
-    prompt.setAttribute('role', 'button');
-    prompt.setAttribute('title', 'Click to explore this scenario');
+  // Show and scroll
+  section.style.display = '';
+  requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
 
-    const toggle = () => {
-      const isActive = prompt.classList.contains('scenario-active');
-      prompts.forEach(p => p.classList.remove('scenario-active'));
-      if (!isActive) {
-        prompt.classList.add('scenario-active');
-        activeScenario = idx;
-      } else {
-        activeScenario = null;
-      }
-    };
-    prompt.addEventListener('click', toggle);
-    prompt.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') toggle(); });
+/* ── ROLE DETAIL PANEL ──────────────────────────────────────── */
+function showRolePanel(roleId) {
+  const role = QW_ROLES[roleId];
+  const panel = document.getElementById('roleDetailPanel');
+  if (!panel || !role) return;
+
+  document.getElementById('rdpDept').textContent    = role.dept;
+  document.getElementById('rdpTitle').textContent   = role.title;
+  document.getElementById('rdpOverview').textContent = role.overview || '';
+
+  const meta = document.getElementById('rdpMeta');
+  meta.innerHTML = `
+    <span class="rdp-badge">${role.level || ''}</span>
+    <span class="rdp-badge">${role.track === 'Management' || role.track === 'Executive' ? 'People Leadership' : 'IC Track'}</span>
+    ${role.timeline && role.timeline !== '—' ? `<span class="rdp-badge">⏱ ${role.timeline}</span>` : ''}
+  `;
+
+  const comps = document.getElementById('rdpComps');
+  comps.innerHTML = (role.competencies || []).slice(0, 5)
+    .map(c => `<span class="rdp-comp-chip">${c}</span>`).join('');
+
+  panel.style.display = '';
+  // Re-trigger animation
+  panel.style.animation = 'none';
+  requestAnimationFrame(() => { panel.style.animation = ''; });
+
+  // Scroll panel into view
+  requestAnimationFrame(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+
+  // Hide step2 and step3 when picking a new role
+  const s2 = document.getElementById('step2');
+  const s3 = document.getElementById('step3');
+  if (s2) s2.style.display = 'none';
+  if (s3) s3.style.display = 'none';
+}
+
+/* ── DOM CONTENT LOADED WIRING ──────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  // Constellation filter buttons
+  document.getElementById('cFilterBar')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.c-filter-btn');
+    if (!btn || !selectedRoleId) return;
+    document.querySelectorAll('.c-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const type = btn.dataset.type || null; // '' → null for "All"
+    renderConstellation(selectedRoleId, type);
   });
-})();
+});
 
 /* ── SCROLL FADE-IN ANIMATIONS ──────────────────────────────── */
 (function () {
