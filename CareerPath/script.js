@@ -943,9 +943,9 @@ function renderConstellation(roleId, highlightType) {
   if (heading) heading.textContent = `Every path from ${role.title}.`;
 
   const { vertical = [], lateral = [], crossDept = [] } = role.next || {};
-  const W = 960, H = 640;
+  const W = 1000, H = 680;
   const cx = W / 2, cy = H / 2;
-  const R  = 240; // orbit radius — wider to accommodate taller pills
+  const R  = 255; // orbit radius — wider to accommodate taller pills
   const NR = 46;  // node circle radius (legacy, unused for pills)
   const CR = 58;  // center circle radius
 
@@ -981,20 +981,22 @@ function renderConstellation(roleId, highlightType) {
   }
 
   // Compute dynamic pill width/height per node from its text content
+  // Uses 9.5px/char estimate (conservative for Inter 11px bold) with generous padding
   function pillDims(lines) {
     const maxChars = Math.max(...lines.map(l => l.length));
-    const pw = Math.max(130, Math.min(205, maxChars * 8 + 48)); // ~8px/char + padding
-    const ph = lines.length > 1 ? 86 : 72; // taller if 2-line title
+    const pw = Math.max(130, Math.min(230, maxChars * 9.5 + 54));
+    const ph = lines.length >= 3 ? 94 : lines.length === 2 ? 80 : 66;
     return { pw, ph };
   }
 
   // Build path nodes with x/y positions and per-node pill dimensions
+  // Allow up to 3 lines so long titles never need cramming into 2
   const buildNodes = (ids, type) =>
     arcAngles(type, ids.length).map((deg, i) => {
       const rad = deg * Math.PI / 180;
       const role = QW_ROLES[ids[i]];
       if (!role) return null;
-      const lines = wrapTitle(role.title, 14).slice(0, 2);
+      const lines = wrapTitle(role.title, 11).slice(0, 3);
       const { pw, ph } = pillDims(lines);
       return {
         id: ids[i], type,
@@ -1090,9 +1092,9 @@ function renderConstellation(roleId, highlightType) {
     const nx = n.x;
     const rx = Math.min(28, ph / 2); // pill border-radius
 
-    const ICON_FS = 12, TITLE_FS = 12, DEPT_FS = 10;
-    const lh = 15; // line height
-    const gap = 4;
+    const ICON_FS = 11, TITLE_FS = 11, DEPT_FS = 9.5;
+    const lh = 13; // line height
+    const gap = 3;
 
     // Vertically center: icon row + title rows + dept row
     const rowCount = 1 + lines.length + 1;
