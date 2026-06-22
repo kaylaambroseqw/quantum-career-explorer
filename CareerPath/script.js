@@ -353,18 +353,16 @@ function buildModalHTML(roleId, mode = 'explore') {
         <p class="modal-dept">${role.dept}</p>
         <h2 class="modal-title">${role.fullTitle}</h2>
         <div class="modal-meta">
-          <span class="modal-level">${role.level}</span>
           ${trackBadge}
-          ${role.timeline !== '—' ? `<span class="modal-timeline">⏱ ${role.timeline}</span>` : ''}
         </div>
       </div>
       <button class="modal-close" onclick="closeModal()" aria-label="Close">✕</button>
     </div>
 
     <div class="modal-tabs" role="tablist">
-      <button class="modal-tab active" data-tab="overview"      onclick="switchTab(this, 'overview')">Overview</button>
+      <button class="modal-tab active" data-tab="overview"        onclick="switchTab(this, 'overview')">Overview</button>
       <button class="modal-tab"        data-tab="competencies"  onclick="switchTab(this, 'competencies')">Competencies</button>
-      <button class="modal-tab"        data-tab="milestones"    onclick="switchTab(this, 'milestones')">Milestones</button>
+      <button class="modal-tab"        data-tab="manager-input" onclick="switchTab(this, 'manager-input')">Manager Input</button>
       <button class="modal-tab"        data-tab="next"          onclick="switchTab(this, 'next')">Next steps</button>
     </div>
 
@@ -379,10 +377,8 @@ function buildModalHTML(roleId, mode = 'explore') {
         </ul>
       </div>
 
-      <div class="modal-panel" data-panel="milestones">
-        <ul class="modal-list modal-list-check">
-          ${(role.milestones || []).map(m => `<li>${m}</li>`).join('')}
-        </ul>
+      <div class="modal-panel" data-panel="manager-input">
+        <p class="modal-overview-text modal-manager-placeholder">We're still building this out — but you'll see what makes a great Qwirk in this role right here. Stay tuned.</p>
       </div>
 
       <div class="modal-panel" data-panel="next">
@@ -611,7 +607,6 @@ document.addEventListener('keydown', (e) => {
 (function () {
   const deptContainer  = document.getElementById('filterDept');
   const trackContainer = document.getElementById('filterTrack');
-  const levelContainer = document.getElementById('filterLevel');
   const cardGrid       = document.getElementById('roleCardGrid');
 
   // ── Canonical mappings for filter dimensions
@@ -619,29 +614,14 @@ document.addEventListener('keydown', (e) => {
     'IC': 'IC', 'IC/Lead': 'IC', 'IC/Management': 'IC',
     'Management': 'People Leadership', 'Executive': 'People Leadership',
   };
-  const LEVEL_MAP = {
-    'Intern': 'Intern',
-    'Entry': 'Entry', 'Entry-Mid': 'Entry',
-    'Junior': 'Junior', 'Junior-Mid': 'Junior',
-    'Mid': 'Mid-Level', 'Mid-Level': 'Mid-Level', 'Mid-Senior': 'Mid-Level', 'Specialist': 'Mid-Level',
-    'Senior': 'Senior', 'Senior/Executive': 'Senior', 'Principal': 'Senior',
-    'Lead': 'Lead', 'Team Lead': 'Lead',
-    'Manager': 'Manager', 'Manager/Lead': 'Manager', 'IC/Management': 'Manager',
-    'Senior Manager': 'Senior Manager', 'Senior Manager/Controller': 'Senior Manager', 'Senior Director': 'Senior Manager',
-    'Director': 'Director', 'Director/VP/Executive': 'Director',
-    'VP': 'VP', 'VP/Executive': 'VP',
-    'C-Suite Executive': 'Executive', 'Executive': 'Executive',
-  };
-  const LEVEL_ORDER = ['Intern','Entry','Junior','Associate','Mid-Level','Senior','Lead','Manager','Senior Manager','Director','VP','Executive'];
   const TRACK_ORDER = ['All','IC','People Leadership'];
 
   // Active filter state
   let activeDept  = 'All';
   let activeTrack = 'All';
-  let activeLevel = 'All';
   let searchQuery = '';
 
-  // ── Build department pills
+  // ── Build team pills
   (QW_DEPARTMENTS || ['All']).forEach((dept, i) => {
     const pill = document.createElement('span');
     pill.className = 'filter-pill' + (i === 0 ? ' active' : '');
@@ -657,14 +637,6 @@ document.addEventListener('keydown', (e) => {
     trackContainer.appendChild(pill);
   });
 
-  // ── Build level pills
-  ['All', ...LEVEL_ORDER].forEach((level, i) => {
-    const pill = document.createElement('span');
-    pill.className = 'filter-pill' + (i === 0 ? ' active' : '');
-    pill.textContent = level;
-    levelContainer.appendChild(pill);
-  });
-
   // ── Build role cards from QW_ROLES (sorted by dept then title)
   const sortedRoles = Object.values(QW_ROLES).sort((a, b) => {
     if (a.dept < b.dept) return -1;
@@ -674,19 +646,17 @@ document.addEventListener('keydown', (e) => {
 
   sortedRoles.forEach(role => {
     const canonicalTrack = TRACK_MAP[role.track] || 'IC';
-    const canonicalLevel = LEVEL_MAP[role.level] || role.level || '';
     const trackLabel = canonicalTrack === 'People Leadership' ? 'People Leadership' : 'IC Track';
 
     const card = document.createElement('div');
     card.className = 'role-card';
-    card.dataset.roleId    = role.id;
-    card.dataset.dept      = role.dept || '';
-    card.dataset.track     = canonicalTrack;
-    card.dataset.level     = canonicalLevel;
+    card.dataset.roleId = role.id;
+    card.dataset.dept   = role.dept || '';
+    card.dataset.track  = canonicalTrack;
     card.innerHTML = `
       <div class="role-card-dept">${role.dept}</div>
       <div class="role-card-title">${role.title}</div>
-      <div class="role-card-level">${role.level || ''} · ${trackLabel}</div>
+      <div class="role-card-level">${trackLabel}</div>
     `;
     card.dataset.matches = '1'; // default: all visible before any filter
     cardGrid.appendChild(card);
@@ -728,9 +698,8 @@ document.addEventListener('keydown', (e) => {
     getCards().forEach(card => {
       const matchDept  = activeDept  === 'All' || card.dataset.dept  === activeDept;
       const matchTrack = activeTrack === 'All' || card.dataset.track === activeTrack;
-      const matchLevel = activeLevel === 'All' || card.dataset.level === activeLevel;
       const matchSearch = !searchQuery || card.textContent.toLowerCase().includes(searchQuery);
-      const show = matchDept && matchTrack && matchLevel && matchSearch;
+      const show = matchDept && matchTrack && matchSearch;
       card.dataset.matches = show ? '1' : '0';
       card.style.display = show ? '' : 'none';
       if (show) {
@@ -755,7 +724,6 @@ document.addEventListener('keydown', (e) => {
 
   makePillHandler(deptContainer,  v => activeDept  = v);
   makePillHandler(trackContainer, v => activeTrack = v);
-  makePillHandler(levelContainer, v => activeLevel = v);
 
   // ── Wire up card clicks
   cardGrid.addEventListener('click', (e) => {
@@ -785,7 +753,7 @@ document.addEventListener('keydown', (e) => {
   if (searchBar) {
     const input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = 'Search roles, departments, or skills…';
+    input.placeholder = 'Search roles, teams, or skills…';
     input.style.cssText = 'border:none;background:none;outline:none;font:inherit;color:inherit;width:100%;font-size:.88rem;';
     const placeholder = searchBar.querySelector('.search-placeholder');
     if (placeholder) placeholder.replaceWith(input);
@@ -853,7 +821,7 @@ function getAspirationContent(pathType, sourceRole, targetIds) {
         if (targetDepts.some(d => d.includes('Customer Success')))
           return "You want to own long-term customer relationships and be accountable for their outcomes.";
         if (targetDepts.some(d => d.includes('People') || d.includes('HR')))
-          return "You care deeply about culture and employee experience — you want to impact the org from the inside out.";
+          return "You care deeply about culture and Qwirk experience — you want to impact the org from the inside out.";
         if (targetDepts.some(d => d.includes('Insights') || d.includes('Analytics')))
           return "You want to get closer to the data and surface insights that drive smarter decisions.";
         if (targetDepts.some(d => d.includes('Technology') || d.includes('Engineering')))
@@ -1270,9 +1238,7 @@ function showRolePanel(roleId) {
 
   const meta = document.getElementById('rdpMeta');
   meta.innerHTML = `
-    <span class="rdp-badge">${role.level || ''}</span>
     <span class="rdp-badge">${role.track === 'Management' || role.track === 'Executive' ? 'People Leadership' : 'IC Track'}</span>
-    ${role.timeline && role.timeline !== '—' ? `<span class="rdp-badge">⏱ ${role.timeline}</span>` : ''}
   `;
 
   const comps = document.getElementById('rdpComps');
