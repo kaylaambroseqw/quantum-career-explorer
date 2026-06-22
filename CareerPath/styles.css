@@ -177,13 +177,12 @@ body {
 
 /* ── HERO ───────────────────────────────────────────────────── */
 .hero {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   max-width: 900px;
   margin: 0 auto;
-  padding: 120px 24px 80px;
+  padding: 120px 24px 48px;
 }
 
 .hero-sub { max-width: 620px; }
@@ -348,7 +347,7 @@ body {
 
 /* ── HOW IT WORKS ───────────────────────────────────────────── */
 .how-it-works {
-  padding: 100px 0;
+  padding: 56px 0 100px;
   border-top: 1px solid var(--surface-3);
 }
 
