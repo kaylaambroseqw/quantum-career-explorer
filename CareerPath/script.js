@@ -443,7 +443,6 @@ function renderDevPlanner(sourceId, targetId) {
   // Update header
   document.getElementById('dpSourceRole').textContent = source.title;
   document.getElementById('dpTargetRole').textContent = target.title;
-  document.getElementById('dpMilestoneRole').textContent = target.title;
 
   // ── Skill gap — deterministic % based on competency + source overlap
   function hashPct(str, base, range) {
@@ -493,12 +492,6 @@ function renderDevPlanner(sourceId, targetId) {
   document.getElementById('dpConvoStarters').innerHTML = starterList
     .map(s => `<div class="dp-convo-item">${s}</div>`).join('');
 
-  // ── Milestones
-  const milestones = (target.milestones || []).slice(0, 5);
-  document.getElementById('dpMilestones').innerHTML = milestones.length
-    ? milestones.map(m => `<li>${m}</li>`).join('')
-    : '<li style="color:var(--ink-faint);font-style:italic">Milestones not mapped yet for this role.</li>';
-
   // ── Action buttons
   const bookmarkBtn = document.getElementById('dpBookmark');
   const saveBtn     = document.getElementById('dpSave');
@@ -527,9 +520,6 @@ function renderDevPlanner(sourceId, targetId) {
       '',
       '── GOAL ──',
       `Move from ${source.title} to ${target.title} (${moveType === 'vertical' ? 'Vertical' : moveType === 'lateral' ? 'Lateral' : 'Cross-Department'} path)`,
-      '',
-      '── MILESTONES ──',
-      ...(target.milestones || []).slice(0, 5).map(m => `• ${m}`),
       '',
       '── COMPETENCIES TO DEVELOP ──',
       ...(target.competencies || []).slice(0, 6).map(c => `• ${c}`),
