@@ -8,6 +8,9 @@ let selectedRoleId = 'csm';
 let activeModal    = null;
 let activeScenario = null;
 
+// Self-selected roles: { roleId: { lateral: ['role-id', ...], crossDept: ['role-id', ...] } }
+const customNextSteps = {};
+
 /* ── CAREER PATHWAY CANVAS ──────────────────────────────────── */
 (function () {
   const canvas = document.getElementById('latticeCanvas');
@@ -320,26 +323,45 @@ function buildModalHTML(roleId, mode = 'explore') {
 
   const nextStepsHTML = () => {
     const { vertical = [], lateral = [], crossDept = [] } = role.next || {};
-    if (!vertical.length && !lateral.length && !crossDept.length)
+    const custom = customNextSteps[roleId] || {};
+    const customLateral   = custom.lateral   || [];
+    const customCrossDept = custom.crossDept || [];
+
+    if (!vertical.length && !lateral.length && !crossDept.length &&
+        !customLateral.length && !customCrossDept.length)
       return '<p class="modal-empty">Highest level in this track.</p>';
 
-    const section = (type, icon, heading, ids) => {
-      if (!ids.length) return '';
-      const chips = ids.map(id => {
+    const section = (type, icon, heading, ids, customIds, allowAdd) => {
+      const allIds    = ids.filter(id => QW_ROLES[id]);
+      const custChips = customIds.map(id => {
+        const label = QW_ROLES[id]?.title || id;
+        return `<button class="next-step-chip next-step-custom" onclick="openModal('${id}')" title="View ${label}">
+          ${icon} ${label}
+          <span class="next-step-remove" onclick="removeCustomNext(event,'${roleId}','${type}','${id}')" title="Remove">×</span>
+        </button>`;
+      }).join('');
+      const recChips  = allIds.map(id => {
         const label = QW_ROLES[id]?.title || id;
         return `<button class="next-step-chip next-step-${type}" onclick="openModal('${id}')" title="View ${label}">${icon} ${label}</button>`;
       }).join('');
+      if (!allIds.length && !customIds.length && !allowAdd) return '';
+      const addBtn = allowAdd
+        ? `<button class="next-step-add-btn" onclick="openCustomRolePicker('${roleId}','${type}',this)" title="Add a role you're interested in">＋</button>`
+        : '';
       return `
         <div class="next-steps-group">
-          <p class="next-steps-group-label">${heading}</p>
-          <div class="next-steps-group-chips">${chips}</div>
+          <div class="next-steps-group-header">
+            <p class="next-steps-group-label">${heading}</p>
+            ${addBtn}
+          </div>
+          <div class="next-steps-group-chips">${recChips}${custChips}</div>
         </div>`;
     };
 
     return [
-      section('vertical',  '↑', 'Vertical paths',              vertical),
-      section('lateral',   '↔', 'Lateral moves',               lateral),
-      section('crossdept', '⟺', 'Cross-department opportunities', crossDept),
+      section('vertical',  '↑', 'Vertical paths',                 vertical,  [],              false),
+      section('lateral',   '↔', 'Lateral moves',                  lateral,   customLateral,   true),
+      section('crossdept', '⟺', 'Cross-department opportunities', crossDept, customCrossDept, true),
     ].join('');
   };
 
@@ -401,6 +423,106 @@ function exploreRole(roleId) {
   closeModal();
   selectedRoleId = roleId;
   renderStep2(roleId);
+}
+
+/* ── CUSTOM NEXT STEPS ──────────────────────────────────────── */
+function removeCustomNext(event, roleId, type, targetId) {
+  event.stopPropagation();
+  if (!customNextSteps[roleId]) return;
+  const arr = customNextSteps[roleId][type];
+  if (!arr) return;
+  const idx = arr.indexOf(targetId);
+  if (idx !== -1) arr.splice(idx, 1);
+  // Re-render the modal's next panel in place
+  const panel = document.querySelector('[data-panel="next"]');
+  if (panel) {
+    const box = document.getElementById('modalBox');
+    if (box) {
+      box.innerHTML = buildModalHTML(roleId, activeModal?.mode || 'explore');
+      // Switch back to next tab
+      const nextTab = box.querySelector('[data-tab="next"]');
+      if (nextTab) switchTab(nextTab, 'next');
+    }
+  }
+}
+
+function openCustomRolePicker(roleId, type, btn) {
+  // Close any existing picker
+  document.querySelectorAll('.custom-role-picker').forEach(p => p.remove());
+
+  const existing = [
+    ...(QW_ROLES[roleId]?.next?.lateral || []),
+    ...(QW_ROLES[roleId]?.next?.crossDept || []),
+    ...(QW_ROLES[roleId]?.next?.vertical || []),
+    ...((customNextSteps[roleId]?.lateral)   || []),
+    ...((customNextSteps[roleId]?.crossDept) || []),
+    roleId,
+  ];
+
+  // Build list of all roles except already-listed ones
+  const allRoles = Object.values(QW_ROLES)
+    .filter(r => !existing.includes(r.id))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  const picker = document.createElement('div');
+  picker.className = 'custom-role-picker';
+  picker.innerHTML = `
+    <div class="crp-header">
+      <input class="crp-search" placeholder="Search roles…" autocomplete="off" />
+      <button class="crp-close" onclick="this.closest('.custom-role-picker').remove()">✕</button>
+    </div>
+    <ul class="crp-list"></ul>
+  `;
+
+  const renderList = (filter) => {
+    const ul = picker.querySelector('.crp-list');
+    const filtered = allRoles.filter(r =>
+      r.title.toLowerCase().includes(filter.toLowerCase()) ||
+      r.dept.toLowerCase().includes(filter.toLowerCase())
+    ).slice(0, 8);
+    ul.innerHTML = filtered.map(r =>
+      `<li class="crp-item" data-id="${r.id}">
+        <span class="crp-item-title">${r.title}</span>
+        <span class="crp-item-dept">${r.dept}</span>
+      </li>`
+    ).join('') || '<li class="crp-no-results">No roles found</li>';
+
+    ul.querySelectorAll('.crp-item').forEach(li => {
+      li.addEventListener('click', () => {
+        const targetId = li.dataset.id;
+        if (!customNextSteps[roleId]) customNextSteps[roleId] = {};
+        if (!customNextSteps[roleId][type]) customNextSteps[roleId][type] = [];
+        if (!customNextSteps[roleId][type].includes(targetId)) {
+          customNextSteps[roleId][type].push(targetId);
+        }
+        picker.remove();
+        // Re-render modal
+        const box = document.getElementById('modalBox');
+        if (box) {
+          box.innerHTML = buildModalHTML(roleId, activeModal?.mode || 'explore');
+          const nextTab = box.querySelector('[data-tab="next"]');
+          if (nextTab) switchTab(nextTab, 'next');
+        }
+      });
+    });
+  };
+
+  renderList('');
+  picker.querySelector('.crp-search').addEventListener('input', e => renderList(e.target.value));
+
+  // Position below the + button
+  btn.closest('.next-steps-group').appendChild(picker);
+  picker.querySelector('.crp-search').focus();
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!picker.contains(e.target)) {
+        picker.remove();
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 50);
 }
 
 function startOver() {
@@ -558,10 +680,10 @@ function openModal(roleId, mode = 'explore') {
     document.body.appendChild(overlay);
   }
 
-  overlay.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true">${buildModalHTML(roleId, mode)}</div>`;
+  overlay.innerHTML = `<div id="modalBox" class="modal-box" role="dialog" aria-modal="true">${buildModalHTML(roleId, mode)}</div>`;
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
-  activeModal = roleId;
+  activeModal = { id: roleId, mode };
 
   // Focus first focusable element
   requestAnimationFrame(() => {
