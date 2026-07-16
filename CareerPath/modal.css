@@ -567,12 +567,30 @@
   cursor: pointer;
   transition: var(--transition);
 }
+.compare-mini-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .compare-mini-chip.current {
   border-color: var(--qw-med-blue);
   background: #EAF4FD;
   color: var(--qw-dark-blue);
 }
-.compare-mini-chip:hover { border-color: var(--accent); color: var(--accent); }
+.cmp-chip-label {
+  cursor: pointer;
+}
+.cmp-chip-label:hover { color: var(--accent); }
+.cmp-chip-x {
+  cursor: pointer;
+  color: var(--ink-faint);
+  font-size: .7rem;
+  line-height: 1;
+  padding: 0 1px;
+  border-radius: 2px;
+  transition: color .12s;
+}
+.cmp-chip-x:hover { color: #e53030; }
 .compare-bar-nav {
   display: flex;
   align-items: center;
