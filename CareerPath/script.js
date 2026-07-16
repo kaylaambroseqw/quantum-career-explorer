@@ -21,6 +21,12 @@ let constellationExplore   = false; // "Explore All" click-navigate mode
 let constellationHistory   = [];    // history stack for constellation back button
 let constellationCurrentId = null;  // current center role in explore mode
 
+/* ── EXPLORE-ALL ZOOM STATE ─────────────────────────────────── */
+let exploreZoomed      = false;   // true when zoomed into a role in Explore All
+let exploreSelectedId  = null;    // role currently zoomed to
+let _eaRolePos         = {};      // cached role positions from last renderExploreAll
+let _eaDeptColor       = {};      // cached dept colors from last renderExploreAll
+
 /* ── CAREER PATHWAY CANVAS ──────────────────────────────────── */
 (function () {
   const canvas = document.getElementById('latticeCanvas');
@@ -578,6 +584,8 @@ function startOver() {
   constellationExplore   = false;
   constellationCurrentId = null;
   constellationHistory   = [];
+  exploreZoomed          = false;
+  exploreSelectedId      = null;
   comparisonRoles.clear();
   document.getElementById('constellationStage')?.classList.remove('explore-mode');
   // Hide downstream steps
@@ -844,6 +852,16 @@ function updateConstellationBreadcrumb() {
     bc.style.display = 'none';
     return;
   }
+  bc.style.display = '';
+
+  // When zoomed in, show "Full map" zoom-out button + zoomed role label
+  if (exploreZoomed && exploreSelectedId) {
+    const role = QW_ROLES[exploreSelectedId];
+    bc.innerHTML = `<button class="crumb-back crumb-zoom-out" onclick="zoomExploreOut()">⊙ Full map</button>` +
+      `<div class="crumb-trail"><span class="crumb-current">${role?.title || ''}</span></div>`;
+    return;
+  }
+
   const trail = [...constellationHistory, constellationCurrentId];
   const crumbs = trail.map((id, i) => {
     const t = QW_ROLES[id]?.title || id;
@@ -851,7 +869,6 @@ function updateConstellationBreadcrumb() {
     const stepsBack = trail.length - 1 - i;
     return `<span class="crumb-link" onclick="goBackConstellation(${stepsBack})">${t}</span>`;
   }).join('<span class="crumb-sep">›</span>');
-  bc.style.display = '';
   bc.innerHTML = `<button class="crumb-back" onclick="goBackConstellation(1)" ${constellationHistory.length === 0 ? 'disabled' : ''}>← Back</button><div class="crumb-trail">${crumbs}</div>`;
 }
 
@@ -1547,10 +1564,201 @@ function showRolePanel(roleId) {
 
 /* ── DOM CONTENT LOADED WIRING ──────────────────────────────── */
 /* ── EXPLORE ALL: FULL ORG GRAPH ─────────────────────────────── */
+/* ── EXPLORE-ALL ZOOM HELPERS ───────────────────────────────── */
+
+/** Smoothly animate an SVG's viewBox from current to target [x,y,w,h]. */
+function animateViewBox(svg, target, duration) {
+  if (!svg) return;
+  duration = duration || 580;
+  const cur = (svg.getAttribute('viewBox') || '0 0 1400 1120').split(' ').map(Number);
+  const start = performance.now();
+  function step(now) {
+    const raw = Math.min(1, (now - start) / duration);
+    // ease-in-out cubic
+    const t = raw < 0.5 ? 4 * raw * raw * raw : 1 - Math.pow(-2 * raw + 2, 3) / 2;
+    const vb = cur.map((c, i) => (c + (target[i] - c) * t).toFixed(2)).join(' ');
+    svg.setAttribute('viewBox', vb);
+    if (raw < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/** Zoom and pan Explore All into a selected role, add burst + expanded card. */
+function zoomExploreToRole(rId) {
+  const stage = document.getElementById('constellationStage');
+  if (!stage) return;
+  const svg   = stage.querySelector('svg[id="ea-svg"]');
+  if (!svg) return;
+  const pos   = _eaRolePos[rId];
+  const role  = QW_ROLES[rId];
+  if (!pos || !role) return;
+
+  const W = 1400, H = 1120;
+  exploreZoomed     = true;
+  exploreSelectedId = rId;
+
+  // ── 1. Compute zoomed viewBox (3.9× zoom, clamped to SVG bounds)
+  const zW = 360, zH = 290;
+  let vbX = pos.x - zW / 2;
+  let vbY = pos.y - zH / 2;
+  vbX = Math.max(0, Math.min(W - zW, vbX));
+  vbY = Math.max(0, Math.min(H - zH, vbY));
+  animateViewBox(svg, [vbX, vbY, zW, zH]);
+
+  // ── 2. Dim non-connected nodes (extra dim while zoomed)
+  const hlRole = role;
+  const hlConn = new Set([
+    rId,
+    ...(hlRole.next?.vertical  || []),
+    ...(hlRole.next?.lateral   || []),
+    ...(hlRole.next?.crossDept || []),
+  ]);
+  svg.querySelectorAll('.ea-node').forEach(n => {
+    n.style.transition = 'opacity 0.32s ease';
+    n.style.opacity    = hlConn.has(n.dataset.roleId) ? '1' : '0.08';
+  });
+  svg.querySelectorAll('.ea-line').forEach(l => {
+    const ids = (l.dataset.ids || '').split('|');
+    const hit = ids.includes(rId);
+    l.style.transition  = 'opacity 0.32s ease, stroke-width 0.32s ease';
+    l.style.opacity     = hit ? '0.80' : '0.03';
+    l.style.strokeWidth = hit ? '2.8'  : '0.4';
+  });
+
+  // ── 3. Build ripple burst + expanded card in overlay group
+  const overlay = svg.querySelector('#ea-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = '';
+
+  const color = _eaDeptColor[role.dept] || '#003B75';
+  const cx = pos.x.toFixed(2), cy = pos.y.toFixed(2);
+
+  // Ripple circles (3 rings that expand and fade)
+  const ripples = [1, 2, 3].map(i => {
+    const delay = ((i - 1) * 0.16).toFixed(2);
+    const maxR  = 60 + i * 22;
+    return `<circle cx="${cx}" cy="${cy}" r="6" fill="none" stroke="${color}" stroke-width="${(2.5 - i * 0.4).toFixed(1)}" opacity="0">
+      <animate attributeName="r"       values="6;${maxR}"   dur="0.85s" begin="${delay}s" fill="freeze" calcMode="spline" keySplines="0.25 0.1 0.25 1"/>
+      <animate attributeName="opacity" values="0.7;0"       dur="0.85s" begin="${delay}s" fill="freeze" calcMode="spline" keySplines="0.25 0.1 0.25 1"/>
+    </circle>`;
+  }).join('');
+
+  // ── 4. Expanded card (positioned above node; flip below if near top)
+  const cardW = 138, cardH = 104;
+  const cardX = pos.x - cardW / 2;
+  let cardY   = pos.y - pos.h / 2 - 14 - cardH;
+  if (cardY < vbY + 6) cardY = pos.y + pos.h / 2 + 14; // flip below
+
+  const connV  = (role.next?.vertical  || []).length;
+  const connL  = (role.next?.lateral   || []).length;
+  const connCd = (role.next?.crossDept || []).length;
+  const trackLabel = (role.track === 'Management' || role.track === 'Executive') ? 'People Leadership' : 'IC';
+
+  // Word-wrap title (max ~18 chars per line)
+  const words = (role.fullTitle || role.title).split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    if (cur && (cur + ' ' + w).length > 18) { lines.push(cur); cur = w; }
+    else cur = cur ? cur + ' ' + w : w;
+  }
+  if (cur) lines.push(cur);
+  const titleLines = lines.slice(0, 2); // max 2 lines
+
+  const lineH = 12.5;
+  const titleStartY = cardY + 30;
+  const titlesHTML  = titleLines.map((l, i) =>
+    `<text x="${pos.x.toFixed(2)}" y="${(titleStartY + i * lineH).toFixed(2)}"
+      text-anchor="middle" fill="#1a1d22" font-size="10.5" font-family="Inter,sans-serif" font-weight="700">${l}</text>`
+  ).join('');
+
+  const statsY = cardY + 30 + titleLines.length * lineH + 8;
+  const plusCx = (cardX + cardW - 15).toFixed(2);
+  const plusCy = (cardY + cardH - 15).toFixed(2);
+
+  const cardHTML = `
+    <g id="ea-card">
+      <rect x="${cardX.toFixed(2)}" y="${cardY.toFixed(2)}" width="${cardW}" height="${cardH}" rx="9"
+        fill="white" stroke="${color}" stroke-width="1.8"
+        style="filter:drop-shadow(0 4px 16px rgba(0,0,0,.18))"/>
+      <text x="${pos.x.toFixed(2)}" y="${(cardY + 16).toFixed(2)}" text-anchor="middle"
+        fill="${color}" font-size="6.5" font-family="Inter,sans-serif" font-weight="700" letter-spacing="0.06em">
+        ${role.dept.toUpperCase()} · ${trackLabel}
+      </text>
+      ${titlesHTML}
+      <text x="${(cardX + 12).toFixed(2)}" y="${statsY.toFixed(2)}" fill="#E3530F" font-size="7.5" font-family="Inter,sans-serif" font-weight="600">↑ ${connV} vertical</text>
+      <text x="${(cardX + 12).toFixed(2)}" y="${(statsY + 10).toFixed(2)}" fill="#0077CD" font-size="7.5" font-family="Inter,sans-serif" font-weight="600">↔ ${connL} lateral</text>
+      <text x="${(cardX + 12).toFixed(2)}" y="${(statsY + 20).toFixed(2)}" fill="#003B75" font-size="7.5" font-family="Inter,sans-serif" font-weight="600">⟺ ${connCd} cross-dept</text>
+      <!-- + button to open role modal -->
+      <g class="ea-open-modal-btn" data-role-id="${rId}" style="cursor:pointer">
+        <circle cx="${plusCx}" cy="${plusCy}" r="11.5" fill="${color}"/>
+        <text x="${plusCx}" y="${(parseFloat(plusCy) + 4.5).toFixed(2)}" text-anchor="middle"
+          fill="white" font-size="16" font-family="Inter,sans-serif" font-weight="300" pointer-events="none">+</text>
+      </g>
+    </g>`;
+
+  overlay.innerHTML = ripples + cardHTML;
+
+  // Wire the + button
+  overlay.querySelector('.ea-open-modal-btn')?.addEventListener('click', e => {
+    e.stopPropagation();
+    openModal(rId);
+  });
+
+  // Update heading + breadcrumb
+  const heading = document.getElementById('step3Heading');
+  if (heading) heading.textContent = `Every path from ${role.title || ''}.`;
+  updateConstellationBreadcrumb();
+}
+
+/** Zoom back out to the full Explore All map. */
+function zoomExploreOut() {
+  const stage = document.getElementById('constellationStage');
+  if (!stage) return;
+  const svg = stage.querySelector('svg[id="ea-svg"]');
+  if (!svg) return;
+
+  // Animate back to full view
+  animateViewBox(svg, [0, 0, 1400, 1120]);
+  exploreZoomed = false;
+
+  // Clear overlay
+  const overlay = svg.querySelector('#ea-overlay');
+  if (overlay) overlay.innerHTML = '';
+
+  // Restore node/line opacities to the current highlight state
+  const hlId   = constellationCurrentId;
+  const hlRole = QW_ROLES[hlId];
+  const hlConn = new Set([
+    hlId,
+    ...(hlRole?.next?.vertical  || []),
+    ...(hlRole?.next?.lateral   || []),
+    ...(hlRole?.next?.crossDept || []),
+  ]);
+  svg.querySelectorAll('.ea-node').forEach(n => {
+    const nId = n.dataset.roleId;
+    n.style.transition = 'opacity 0.35s ease';
+    n.style.opacity    = (nId === hlId || hlConn.has(nId)) ? '1' : '0.42';
+  });
+  svg.querySelectorAll('.ea-line').forEach(l => {
+    const ids = (l.dataset.ids || '').split('|');
+    const hit = ids.includes(hlId);
+    l.style.transition  = 'opacity 0.35s ease, stroke-width 0.35s ease';
+    l.style.opacity     = hit ? '0.55' : '0.11';
+    l.style.strokeWidth = hit ? '2'    : '0.8';
+  });
+
+  updateConstellationBreadcrumb();
+}
+
 function renderExploreAll(highlightId) {
   const stage   = document.getElementById('constellationStage');
   const section = document.getElementById('step3');
   if (!stage || !section) return;
+
+  // Reset zoom state on fresh render
+  exploreZoomed     = false;
+  exploreSelectedId = null;
 
   // ── Canvas
   const W = 1400, H = 1120, COLS = 4;
@@ -1613,6 +1821,10 @@ function renderExploreAll(highlightId) {
       };
     });
   });
+
+  // Cache for zoom helpers
+  _eaRolePos   = rolePos;
+  _eaDeptColor = DEPT_COLOR;
 
   // ── Pre-compute highlight role connections
   const hlRole = QW_ROLES[highlightId];
@@ -1692,7 +1904,7 @@ function renderExploreAll(highlightId) {
     </g>`;
   }).join('');
 
-  stage.innerHTML = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;border-radius:16px" role="img" aria-label="Full career map — all roles at Quantum Workplace">
+  stage.innerHTML = `<svg id="ea-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;border-radius:16px" role="img" aria-label="Full career map — all roles at Quantum Workplace">
   <defs>
     <linearGradient id="ea-bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%"   stop-color="#C4D4E5"/>
@@ -1706,11 +1918,12 @@ function renderExploreAll(highlightId) {
       <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.10"/>
     </filter>
   </defs>
-  <rect width="${W}" height="${H}" fill="url(#ea-bg)" rx="16"/>
+  <rect id="ea-bg-rect" width="${W}" height="${H}" fill="url(#ea-bg)" rx="16"/>
   ${pgH}${pgV}
   ${zonesHTML}
   ${linesHTML}
   ${nodesHTML}
+  <g id="ea-overlay"></g>
 </svg>`;
 
   // ── Wire interactions
@@ -1718,17 +1931,16 @@ function renderExploreAll(highlightId) {
     const rId = node.dataset.roleId;
     if (!rId) return;
 
-    // Click: re-render highlighting this role (stay in full map)
-    node.addEventListener('click', () => {
+    // Click: zoom + burst + expanded card for this role
+    node.addEventListener('click', (e) => {
+      e.stopPropagation();
       constellationCurrentId = rId;
-      renderExploreAll(rId);
-      updateConstellationBreadcrumb();
-      const heading = document.getElementById('step3Heading');
-      if (heading) heading.textContent = `Every path from ${QW_ROLES[rId]?.title || ''}.`;
+      zoomExploreToRole(rId);
     });
 
-    // Hover: highlight connections, dim others
+    // Hover: highlight connections, dim others (skip when zoomed)
     node.addEventListener('mouseenter', () => {
+      if (exploreZoomed) return;
       const r = QW_ROLES[rId];
       const conn = new Set([rId, ...(r?.next?.vertical || []), ...(r?.next?.lateral || []), ...(r?.next?.crossDept || [])]);
       stage.querySelectorAll('.ea-node').forEach(n => { n.style.opacity = conn.has(n.dataset.roleId) ? '1' : '0.08'; });
@@ -1740,8 +1952,9 @@ function renderExploreAll(highlightId) {
       });
     });
 
-    // Mouse leave: restore highlight-role state
+    // Mouse leave: restore highlight-role state (skip when zoomed)
     node.addEventListener('mouseleave', () => {
+      if (exploreZoomed) return;
       stage.querySelectorAll('.ea-node').forEach(n => {
         const nId   = n.dataset.roleId;
         const isHL2 = nId === highlightId;
@@ -1756,6 +1969,18 @@ function renderExploreAll(highlightId) {
       });
     });
   });
+
+  // Click SVG background to zoom out
+  const eaSvg = stage.querySelector('svg[id="ea-svg"]');
+  if (eaSvg) {
+    eaSvg.addEventListener('click', (e) => {
+      if (!exploreZoomed) return;
+      // Only zoom out if click was NOT on a node or overlay
+      if (!e.target.closest('.ea-node') && !e.target.closest('#ea-overlay')) {
+        zoomExploreOut();
+      }
+    });
+  }
 
   section.style.display = '';
   requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
