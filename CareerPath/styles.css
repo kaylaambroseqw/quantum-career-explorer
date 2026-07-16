@@ -1124,6 +1124,8 @@ blockquote {
 }
 .crumb-back:hover:not([disabled]) { border-color: var(--accent); color: var(--accent); }
 .crumb-back[disabled] { opacity: .35; cursor: default; }
+.crumb-zoom-out { border-color: var(--qw-dark-blue); color: var(--qw-dark-blue); }
+.crumb-zoom-out:hover { border-color: var(--accent) !important; color: var(--accent) !important; }
 .crumb-trail {
   display: flex;
   align-items: center;
@@ -1150,34 +1152,20 @@ blockquote {
   color: var(--ink-faint);
 }
 
-/* ── 3D RTS-STYLE PERSPECTIVE ───────────────────────────────── */
+/* ── CONSTELLATION STAGE (flat 2D) ──────────────────────────── */
 .constellation-stage {
   width: 100%;
   border-radius: 18px;
   overflow: visible;
   box-shadow: 0 0 0 1.5px #62B6F3, 0 0 32px 8px rgba(98,182,243,.30), 0 28px 90px rgba(0,0,0,.22);
   line-height: 0;
-  perspective: 550px;
-  perspective-origin: 50% -12%;
+  position: relative;
 }
 .constellation-stage svg {
   display: block;
   width: 100%;
   height: auto;
-  transform: rotateX(40deg);
-  transform-origin: center 36%;
-  transition: transform 0.5s cubic-bezier(.22,1,.36,1);
   border-radius: 18px;
-}
-.constellation-stage:hover svg {
-  transform: rotateX(28deg);
-}
-/* Explore-all mode: flatten slightly so the full map is more readable */
-.constellation-stage.explore-mode svg {
-  transform: rotateX(22deg);
-}
-.constellation-stage.explore-mode:hover svg {
-  transform: rotateX(14deg);
 }
 
 /* Node hover animation */
