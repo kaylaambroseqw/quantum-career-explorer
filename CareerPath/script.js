@@ -8,8 +8,18 @@ let selectedRoleId = 'csm';
 let activeModal    = null;
 let activeScenario = null;
 
-// Self-selected roles: { roleId: { lateral: ['role-id', ...], crossDept: ['role-id', ...] } }
+// Self-selected roles: { roleId: { vertical: [], lateral: [], crossDept: [] } }
 const customNextSteps = {};
+
+/* ── NAVIGATION & COMPARISON STATE ─────────────────────────── */
+let modalHistory       = [];        // [{id, mode}, ...] for back button
+let _skipHistoryPush   = false;     // prevents double-push during back nav
+const comparisonRoles  = new Set(); // role IDs toggled for comparison
+let comparisonIdx      = 0;         // current index in comparison cycle
+
+let constellationExplore   = false; // "Explore All" click-navigate mode
+let constellationHistory   = [];    // history stack for constellation back button
+let constellationCurrentId = null;  // current center role in explore mode
 
 /* ── CAREER PATHWAY CANVAS ──────────────────────────────────── */
 (function () {
@@ -324,26 +334,31 @@ function buildModalHTML(roleId, mode = 'explore') {
   const nextStepsHTML = () => {
     const { vertical = [], lateral = [], crossDept = [] } = role.next || {};
     const custom = customNextSteps[roleId] || {};
+    const customVertical  = custom.vertical  || [];
     const customLateral   = custom.lateral   || [];
     const customCrossDept = custom.crossDept || [];
 
     if (!vertical.length && !lateral.length && !crossDept.length &&
-        !customLateral.length && !customCrossDept.length)
+        !customVertical.length && !customLateral.length && !customCrossDept.length)
       return '<p class="modal-empty">Highest level in this track.</p>';
 
     const section = (type, icon, heading, ids, customIds, allowAdd) => {
-      const allIds    = ids.filter(id => QW_ROLES[id]);
-      const custChips = customIds.map(id => {
+      const allIds = ids.filter(id => QW_ROLES[id]);
+      // Chips with compare toggle
+      const chip = (id, isCustom) => {
         const label = QW_ROLES[id]?.title || id;
-        return `<button class="next-step-chip next-step-custom" onclick="openModal('${id}')" title="View ${label}">
-          ${icon} ${label}
-          <span class="next-step-remove" onclick="removeCustomNext(event,'${roleId}','${type}','${id}')" title="Remove">×</span>
-        </button>`;
-      }).join('');
-      const recChips  = allIds.map(id => {
-        const label = QW_ROLES[id]?.title || id;
-        return `<button class="next-step-chip next-step-${type}" onclick="openModal('${id}')" title="View ${label}">${icon} ${label}</button>`;
-      }).join('');
+        const inCmp = comparisonRoles.has(id);
+        const removeSpan = isCustom
+          ? `<span class="next-step-remove" onclick="removeCustomNext(event,'${roleId}','${type}','${id}')" title="Remove">×</span>`
+          : '';
+        const chipClass = isCustom ? 'next-step-custom' : `next-step-${type}`;
+        return `<span class="chip-wrap">
+          <button class="next-step-chip ${chipClass}${inCmp ? ' chip-comparing' : ''}" onclick="openModal('${id}')" title="View ${label}">${icon} ${label}${removeSpan}</button>
+          <button class="chip-cmp-btn${inCmp ? ' active' : ''}" onclick="toggleCompare('${id}',event)" title="${inCmp ? 'Remove from compare' : 'Add to compare'}">⊕</button>
+        </span>`;
+      };
+      const recChips  = allIds.map(id => chip(id, false)).join('');
+      const custChips = customIds.map(id => chip(id, true)).join('');
       if (!allIds.length && !customIds.length && !allowAdd) return '';
       const addBtn = allowAdd
         ? `<button class="next-step-add-btn" onclick="openCustomRolePicker('${roleId}','${type}',this)" title="Add a role you're interested in">＋</button>`
@@ -358,20 +373,46 @@ function buildModalHTML(roleId, mode = 'explore') {
         </div>`;
     };
 
-    return [
-      section('vertical',  '↑', 'Vertical paths',                 vertical,  [],              false),
+    const groups = [
+      section('vertical',  '↑', 'Vertical paths',                 vertical,  customVertical,  true),
       section('lateral',   '↔', 'Lateral moves',                  lateral,   customLateral,   true),
       section('crossdept', '⟺', 'Cross-department opportunities', crossDept, customCrossDept, true),
     ].join('');
+
+    // Comparison bar — shows when 1+ role is toggled
+    const cmpBar = comparisonRoles.size > 0 ? (() => {
+      const cmpList = [...comparisonRoles];
+      const currentInCmp = cmpList.includes(activeModal?.id);
+      return `<div class="compare-bar">
+        <span class="compare-bar-label">↔ Comparing ${comparisonRoles.size} role${comparisonRoles.size !== 1 ? 's' : ''}:</span>
+        <div class="compare-bar-chips">
+          ${cmpList.map(id => `<span class="compare-mini-chip${activeModal?.id === id ? ' current' : ''}" onclick="openModal('${id}')">${QW_ROLES[id]?.title || id}</span>`).join('')}
+        </div>
+        <div class="compare-bar-nav">
+          <button class="cmp-nav-btn" onclick="navigateComparison(-1)" title="Previous">←</button>
+          <button class="cmp-nav-btn" onclick="navigateComparison(1)"  title="Next">→</button>
+          <button class="cmp-clear-btn" onclick="clearComparison()">✕ Clear</button>
+        </div>
+      </div>`;
+    })() : '';
+
+    return groups + cmpBar;
   };
 
   const trackBadge = role.track === 'Management'
     ? `<span class="track-badge track-mgmt">Management Track</span>`
     : `<span class="track-badge track-ic">IC Track</span>`;
 
+  // Back button: visible when there's navigation history
+  const backInfo = modalHistory.length > 0 ? modalHistory[modalHistory.length - 1] : null;
+  const backBtn  = backInfo
+    ? `<button class="modal-back-btn" onclick="goBackInModal()">← ${QW_ROLES[backInfo.id]?.title || 'Back'}</button>`
+    : '';
+
   return `
     <div class="modal-header">
       <div class="modal-header-left">
+        ${backBtn}
         <p class="modal-dept">${role.dept}</p>
         <h2 class="modal-title">${role.fullTitle}</h2>
         <div class="modal-meta">
@@ -451,9 +492,10 @@ function openCustomRolePicker(roleId, type, btn) {
   document.querySelectorAll('.custom-role-picker').forEach(p => p.remove());
 
   const existing = [
-    ...(QW_ROLES[roleId]?.next?.lateral || []),
+    ...(QW_ROLES[roleId]?.next?.vertical  || []),
+    ...(QW_ROLES[roleId]?.next?.lateral   || []),
     ...(QW_ROLES[roleId]?.next?.crossDept || []),
-    ...(QW_ROLES[roleId]?.next?.vertical || []),
+    ...((customNextSteps[roleId]?.vertical)  || []),
     ...((customNextSteps[roleId]?.lateral)   || []),
     ...((customNextSteps[roleId]?.crossDept) || []),
     roleId,
@@ -529,6 +571,12 @@ function startOver() {
   closeModal();
   selectedRoleId = null;
   selectedTargetRoleId = null;
+  // Reset explore mode
+  constellationExplore   = false;
+  constellationCurrentId = null;
+  constellationHistory   = [];
+  comparisonRoles.clear();
+  document.getElementById('constellationStage')?.classList.remove('explore-mode');
   // Hide downstream steps
   ['step2', 'step3', 'step4'].forEach(id => {
     const el = document.getElementById(id);
@@ -669,6 +717,12 @@ function openModal(roleId, mode = 'explore') {
   const role = QW_ROLES[roleId];
   if (!role) return;
 
+  // Push current modal to history for back navigation (unless this is a back nav)
+  if (!_skipHistoryPush && activeModal && activeModal.id !== roleId) {
+    modalHistory.push({ id: activeModal.id, mode: activeModal.mode });
+  }
+  _skipHistoryPush = false;
+
   let overlay = document.getElementById('modal-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -693,12 +747,20 @@ function openModal(roleId, mode = 'explore') {
 }
 
 function closeModal() {
+  modalHistory = [];
   const overlay = document.getElementById('modal-overlay');
   if (overlay) {
     overlay.classList.remove('open');
     document.body.style.overflow = '';
     activeModal = null;
   }
+}
+
+function goBackInModal() {
+  if (modalHistory.length === 0) return;
+  const prev = modalHistory.pop();
+  _skipHistoryPush = true;
+  openModal(prev.id, prev.mode);
 }
 
 function switchTab(btn, tabName) {
@@ -714,6 +776,77 @@ function switchTab(btn, tabName) {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && activeModal) closeModal();
 });
+
+/* ── COMPARISON HELPERS ─────────────────────────────────────── */
+function toggleCompare(roleId, evt) {
+  if (evt) evt.stopPropagation();
+  if (comparisonRoles.has(roleId)) {
+    comparisonRoles.delete(roleId);
+  } else {
+    comparisonRoles.add(roleId);
+    comparisonIdx = [...comparisonRoles].indexOf(roleId);
+  }
+  // Re-render the current modal in-place (staying on Next Steps tab)
+  const box = document.getElementById('modalBox');
+  if (box && activeModal) {
+    box.innerHTML = buildModalHTML(activeModal.id, activeModal.mode);
+    const nextTab = box.querySelector('[data-tab="next"]');
+    if (nextTab) switchTab(nextTab, 'next');
+  }
+}
+
+function clearComparison() {
+  comparisonRoles.clear();
+  comparisonIdx = 0;
+  const box = document.getElementById('modalBox');
+  if (box && activeModal) {
+    box.innerHTML = buildModalHTML(activeModal.id, activeModal.mode);
+    const nextTab = box.querySelector('[data-tab="next"]');
+    if (nextTab) switchTab(nextTab, 'next');
+  }
+}
+
+function navigateComparison(dir) {
+  const roles = [...comparisonRoles];
+  if (roles.length === 0) return;
+  const currentIdx = roles.indexOf(activeModal?.id);
+  const nextIdx = currentIdx === -1
+    ? (dir > 0 ? 0 : roles.length - 1)
+    : (currentIdx + dir + roles.length) % roles.length;
+  openModal(roles[nextIdx], activeModal?.mode || 'explore');
+}
+
+/* ── CONSTELLATION EXPLORE HELPERS ─────────────────────────── */
+function goBackConstellation(steps) {
+  steps = steps || 1;
+  if (constellationHistory.length === 0) return;
+  for (let i = 0; i < steps - 1; i++) {
+    if (constellationHistory.length > 1) constellationHistory.pop();
+  }
+  constellationCurrentId = constellationHistory.pop() || selectedRoleId;
+  renderConstellation(constellationCurrentId, null);
+  updateConstellationBreadcrumb();
+  const heading = document.getElementById('step3Heading');
+  if (heading) heading.textContent = `Every path from ${QW_ROLES[constellationCurrentId]?.title || ''}.`;
+}
+
+function updateConstellationBreadcrumb() {
+  const bc = document.getElementById('constellationBreadcrumb');
+  if (!bc) return;
+  if (!constellationExplore || !constellationCurrentId) {
+    bc.style.display = 'none';
+    return;
+  }
+  const trail = [...constellationHistory, constellationCurrentId];
+  const crumbs = trail.map((id, i) => {
+    const t = QW_ROLES[id]?.title || id;
+    if (i === trail.length - 1) return `<span class="crumb-current">${t}</span>`;
+    const stepsBack = trail.length - 1 - i;
+    return `<span class="crumb-link" onclick="goBackConstellation(${stepsBack})">${t}</span>`;
+  }).join('<span class="crumb-sep">›</span>');
+  bc.style.display = '';
+  bc.innerHTML = `<button class="crumb-back" onclick="goBackConstellation(1)" ${constellationHistory.length === 0 ? 'disabled' : ''}>← Back</button><div class="crumb-trail">${crumbs}</div>`;
+}
 
 /* ── ROLE SELECTOR ──────────────────────────────────────────── */
 (function () {
@@ -1047,6 +1180,15 @@ function renderStep2(roleId) {
 
 /* ── SYNC CONSTELLATION FILTER BUTTONS ──────────────────────── */
 function syncConstellationFilter(type) {
+  // Reset explore mode when a step-2 card changes the path filter
+  if (constellationExplore) {
+    constellationExplore   = false;
+    constellationCurrentId = null;
+    constellationHistory   = [];
+    document.getElementById('constellationStage')?.classList.remove('explore-mode');
+    const bc = document.getElementById('constellationBreadcrumb');
+    if (bc) bc.style.display = 'none';
+  }
   const bar = document.getElementById('cFilterBar');
   if (!bar) return;
   bar.querySelectorAll('.c-filter-btn').forEach(b => {
@@ -1233,7 +1375,7 @@ function renderConstellation(roleId, highlightType) {
     return `
     <g class="c-node c-node-${n.type}" data-role-id="${n.id}" data-color="${cfg.stroke}" data-glow="${cfg.glow}" tabindex="0" role="button" aria-label="View ${n.role.title}" style="cursor:pointer;opacity:${op}">
       <rect class="c-node-halo" x="${(px - 10).toFixed(1)}" y="${(py - 10).toFixed(1)}" width="${pw + 20}" height="${ph + 20}" rx="${rx + 10}" fill="none" stroke="${cfg.stroke}" stroke-width="1" opacity="${isHL ? 0.22 : 0}"/>
-      <rect class="c-node-pill" x="${px.toFixed(1)}" y="${py.toFixed(1)}" width="${pw}" height="${ph}" rx="${rx}" fill="${cfg.fill}" stroke="${cfg.stroke}" stroke-width="${sw}"/>
+      <rect class="c-node-pill" x="${px.toFixed(1)}" y="${py.toFixed(1)}" width="${pw}" height="${ph}" rx="${rx}" fill="${cfg.fill}" stroke="${cfg.stroke}" stroke-width="${sw}" filter="${isHL ? 'url(#node-shadow)' : 'none'}"/>
       <text x="${nx.toFixed(1)}" y="${iconY}" text-anchor="middle" fill="${cfg.stroke}" font-size="${ICON_FS}" font-family="Inter,system-ui,sans-serif" font-weight="700">${cfg.icon}</text>
       ${titleRows}
       <text x="${nx.toFixed(1)}" y="${deptY}" text-anchor="middle" fill="${cfg.stroke}" font-size="${DEPT_FS}" font-family="Inter,sans-serif" font-weight="400" opacity="0.7">${n.role.dept}</text>
@@ -1267,6 +1409,13 @@ function renderConstellation(roleId, highlightType) {
       <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
+    <!-- 3D depth: drop shadows for pills and center -->
+    <filter id="node-shadow" x="-25%" y="-35%" width="150%" height="170%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+    <filter id="center-shadow" x="-45%" y="-50%" width="190%" height="200%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#E3530F" flood-opacity="0.30"/>
+    </filter>
   </defs>
 
   <!-- Background -->
@@ -1292,7 +1441,7 @@ function renderConstellation(roleId, highlightType) {
       <animate attributeName="r"       values="${CR};${CR + 48}"  dur="2.8s" begin="1.4s" repeatCount="indefinite"/>
       <animate attributeName="opacity" values="0.4;0"              dur="2.8s" begin="1.4s" repeatCount="indefinite"/>
     </circle>
-    <circle cx="${cx}" cy="${cy}" r="${CR}" fill="#E3530F" stroke="#FF7500" stroke-width="2.5" filter="url(#glow-center)"/>
+    <circle cx="${cx}" cy="${cy}" r="${CR}" fill="#E3530F" stroke="#FF7500" stroke-width="2.5" filter="url(#center-shadow)"/>
     ${centerLabelSVG()}
     <text x="${cx}" y="${(cy + CR - 15).toFixed(1)}" text-anchor="middle" fill="white" font-size="8.5" font-family="Inter,sans-serif" font-weight="700" letter-spacing="0.08em">YOU ARE HERE</text>
   </g>
@@ -1306,8 +1455,19 @@ function renderConstellation(roleId, highlightType) {
     if (!rId || !QW_ROLES[rId]) return;
     const glowColor = node.dataset.glow || 'rgba(227,83,15,.5)';
 
-    // Click: open modal in "plan" mode (Step 3 → Development Planner)
-    const activate = () => openModal(rId, 'plan');
+    // Click: explore mode navigates constellation; normal mode opens modal
+    const activate = () => {
+      if (constellationExplore) {
+        constellationHistory.push(constellationCurrentId || roleId);
+        constellationCurrentId = rId;
+        renderConstellation(rId, null);
+        updateConstellationBreadcrumb();
+        const heading = document.getElementById('step3Heading');
+        if (heading) heading.textContent = `Every path from ${QW_ROLES[rId]?.title || ''}.`;
+      } else {
+        openModal(rId, 'plan');
+      }
+    };
     node.addEventListener('click', activate);
     node.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') activate(); });
 
@@ -1382,8 +1542,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn || !selectedRoleId) return;
     document.querySelectorAll('.c-filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    const type = btn.dataset.type || null; // '' → null for "All"
-    renderConstellation(selectedRoleId, type);
+    const type = btn.dataset.type;
+
+    if (type === 'explore-all') {
+      // Enter explore mode: clicking nodes navigates instead of opening modal
+      constellationExplore   = true;
+      constellationCurrentId = selectedRoleId;
+      constellationHistory   = [];
+      document.getElementById('constellationStage')?.classList.add('explore-mode');
+      renderConstellation(selectedRoleId, null);
+      updateConstellationBreadcrumb();
+    } else {
+      // Exit explore mode if active
+      constellationExplore   = false;
+      constellationCurrentId = null;
+      constellationHistory   = [];
+      document.getElementById('constellationStage')?.classList.remove('explore-mode');
+      const bc = document.getElementById('constellationBreadcrumb');
+      if (bc) bc.style.display = 'none';
+      const filterType = type === '' ? null : type;
+      renderConstellation(selectedRoleId, filterType);
+    }
   });
 });
 
