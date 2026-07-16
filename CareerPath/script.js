@@ -1614,8 +1614,9 @@ function zoomExploreToRole(rId) {
   exploreZoomed     = true;
   exploreSelectedId = rId;
 
-  // ── 1. Compute zoomed viewBox (~4× zoom, clamped to SVG bounds)
-  const zW = 360, zH = 290;
+  // ── 1. Compute zoomed viewBox — must stay SQUARE to prevent container resize
+  //    (canvas is 1400×1400; square viewBox keeps aspect-ratio:1 container stable)
+  const zW = 340, zH = 340;
   let vbX = pos.x - zW / 2;
   let vbY = pos.y - zH / 2;
   vbX = Math.max(0, Math.min(_eaCanvasW - zW, vbX));
@@ -1777,24 +1778,21 @@ function eaMapZoomIn() {
   const svg = document.querySelector('#ea-svg');
   if (!svg || exploreZoomed) return;
   const [x, y, w, h] = svg.getAttribute('viewBox').split(' ').map(Number);
-  const factor = 0.70;
-  const newW = Math.max(300, w * factor);
-  const newH = Math.max(300, h * factor);
-  const nx   = Math.max(0, Math.min(_eaCanvasW - newW, x + (w - newW) / 2));
-  const ny   = Math.max(0, Math.min(_eaCanvasH - newH, y + (h - newH) / 2));
-  animateViewBox(svg, [nx, ny, newW, newH]);
+  // Keep square (w === h always for the 1400×1400 canvas)
+  const newSide = Math.max(300, w * 0.70);
+  const nx = Math.max(0, Math.min(_eaCanvasW - newSide, x + (w - newSide) / 2));
+  const ny = Math.max(0, Math.min(_eaCanvasH - newSide, y + (h - newSide) / 2));
+  animateViewBox(svg, [nx, ny, newSide, newSide]);
 }
 
 function eaMapZoomOut() {
   const svg = document.querySelector('#ea-svg');
   if (!svg || exploreZoomed) return;
   const [x, y, w, h] = svg.getAttribute('viewBox').split(' ').map(Number);
-  const factor = 1 / 0.70;
-  const newW = Math.min(_eaCanvasW, w * factor);
-  const newH = Math.min(_eaCanvasH, h * factor);
-  const nx   = Math.max(0, Math.min(_eaCanvasW - newW, x + (w - newW) / 2));
-  const ny   = Math.max(0, Math.min(_eaCanvasH - newH, y + (h - newH) / 2));
-  animateViewBox(svg, [nx, ny, newW, newH]);
+  const newSide = Math.min(_eaCanvasW, w / 0.70);
+  const nx = Math.max(0, Math.min(_eaCanvasW - newSide, x + (w - newSide) / 2));
+  const ny = Math.max(0, Math.min(_eaCanvasH - newSide, y + (h - newSide) / 2));
+  animateViewBox(svg, [nx, ny, newSide, newSide]);
 }
 
 function eaMapZoomReset() {
@@ -1959,6 +1957,8 @@ function renderExploreAll(highlightId) {
     <g class="ea-node" data-role-id="${role.id}" style="cursor:pointer;opacity:${opBase}">
       <title>${role.title} — ${role.dept}</title>
       <rect x="${(pos.x - pos.w/2).toFixed(1)}" y="${(pos.y - pos.h/2).toFixed(1)}" width="${pos.w}" height="${pos.h}" rx="7"
+        fill="white"/>
+      <rect x="${(pos.x - pos.w/2).toFixed(1)}" y="${(pos.y - pos.h/2).toFixed(1)}" width="${pos.w}" height="${pos.h}" rx="7"
         fill="${isHL ? '#E3530F' : color}" fill-opacity="${isHL ? '1' : '0.14'}"
         stroke="${isHL ? '#FF7500' : color}" stroke-width="${isHL ? '2.5' : '1.3'}" stroke-opacity="${isHL ? '1' : '0.65'}"
         ${isHL ? 'filter="url(#ea-glow)"' : ''}/>
@@ -2058,15 +2058,16 @@ function renderExploreAll(highlightId) {
     if (!e.target.closest('.ea-node') && !e.target.closest('#ea-overlay')) zoomExploreOut();
   });
 
-  // ── Scroll wheel: zoom toward cursor position
+  // ── Scroll wheel: zoom toward cursor position (viewBox stays square)
   eaSvg.addEventListener('wheel', (e) => {
     if (exploreZoomed) return;
     e.preventDefault();
     const vb   = eaSvg.getAttribute('viewBox').split(' ').map(Number);
     const [vx, vy, vw, vh] = vb;
     const factor = e.deltaY < 0 ? 0.82 : 1 / 0.82;
-    const newW   = Math.min(_eaCanvasW, Math.max(280, vw * factor));
-    const newH   = Math.min(_eaCanvasH, Math.max(280, vh * factor));
+    // Keep width === height so the square container never shifts
+    const newSide = Math.min(_eaCanvasW, Math.max(280, vw * factor));
+    const newW = newSide, newH = newSide;
     // Keep cursor point fixed in SVG space
     const rect = eaSvg.getBoundingClientRect();
     const mx   = vx + (e.clientX - rect.left) / rect.width  * vw;
