@@ -473,6 +473,142 @@
   box-shadow: none;
 }
 
+/* ── BACK BUTTON ────────────────────────────────────────────── */
+.modal-back-btn {
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  font-size: .76rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  padding: 0 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color .15s;
+  letter-spacing: .01em;
+  line-height: 1;
+}
+.modal-back-btn:hover { color: var(--accent); }
+
+/* ── CHIP WRAP + COMPARE TOGGLE ─────────────────────────────── */
+.chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.chip-cmp-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--surface-3);
+  background: none;
+  color: var(--ink-faint);
+  font-size: .8rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  flex-shrink: 0;
+  font-family: var(--font-body);
+  padding: 0;
+}
+.chip-cmp-btn:hover {
+  border-color: var(--qw-med-blue);
+  color: var(--qw-med-blue);
+  background: var(--green-soft);
+}
+.chip-cmp-btn.active {
+  border-color: var(--qw-med-blue);
+  background: var(--qw-med-blue);
+  color: #fff;
+}
+.next-step-chip.chip-comparing {
+  box-shadow: 0 0 0 2px var(--qw-med-blue);
+}
+
+/* ── COMPARISON BAR ─────────────────────────────────────────── */
+.compare-bar {
+  margin-top: 20px;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--surface-3);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.compare-bar-label {
+  font-size: .74rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.compare-bar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.compare-mini-chip {
+  font-size: .76rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 100px;
+  background: var(--surface);
+  border: 1.5px solid var(--surface-3);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.compare-mini-chip.current {
+  border-color: var(--qw-med-blue);
+  background: #EAF4FD;
+  color: var(--qw-dark-blue);
+}
+.compare-mini-chip:hover { border-color: var(--accent); color: var(--accent); }
+.compare-bar-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.cmp-nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--surface-3);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: .85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  font-family: var(--font-body);
+}
+.cmp-nav-btn:hover { border-color: var(--qw-med-blue); color: var(--qw-med-blue); }
+.cmp-clear-btn {
+  font-size: .74rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  color: var(--ink-faint);
+  background: none;
+  border: 1.5px solid var(--surface-3);
+  border-radius: 100px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.cmp-clear-btn:hover { color: #e53030; border-color: #fecaca; background: #fef2f2; }
+
 /* ── RESPONSIVE ─────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .modal-overlay { padding: 12px; align-items: flex-end; }
