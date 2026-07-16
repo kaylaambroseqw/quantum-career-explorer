@@ -386,7 +386,10 @@ function buildModalHTML(roleId, mode = 'explore') {
       return `<div class="compare-bar">
         <span class="compare-bar-label">↔ Comparing ${comparisonRoles.size} role${comparisonRoles.size !== 1 ? 's' : ''}:</span>
         <div class="compare-bar-chips">
-          ${cmpList.map(id => `<span class="compare-mini-chip${activeModal?.id === id ? ' current' : ''}" onclick="openModal('${id}')">${QW_ROLES[id]?.title || id}</span>`).join('')}
+          ${cmpList.map(id => `<span class="compare-mini-chip${activeModal?.id === id ? ' current' : ''}">
+            <span class="cmp-chip-label" onclick="openModal('${id}')">${QW_ROLES[id]?.title || id}</span>
+            <span class="cmp-chip-x" onclick="toggleCompare('${id}',event)" title="Remove">×</span>
+          </span>`).join('')}
         </div>
         <div class="compare-bar-nav">
           <button class="cmp-nav-btn" onclick="navigateComparison(-1)" title="Previous">←</button>
@@ -824,7 +827,11 @@ function goBackConstellation(steps) {
     if (constellationHistory.length > 1) constellationHistory.pop();
   }
   constellationCurrentId = constellationHistory.pop() || selectedRoleId;
-  renderConstellation(constellationCurrentId, null);
+  if (constellationExplore) {
+    renderExploreAll(constellationCurrentId);
+  } else {
+    renderConstellation(constellationCurrentId, null);
+  }
   updateConstellationBreadcrumb();
   const heading = document.getElementById('step3Heading');
   if (heading) heading.textContent = `Every path from ${QW_ROLES[constellationCurrentId]?.title || ''}.`;
@@ -1310,16 +1317,7 @@ function renderConstellation(roleId, highlightType) {
     ).join('');
   }
 
-  // Pseudo-random stars seeded by roleId
-  function pseudoRand(seed) {
-    let s = seed;
-    return () => { s = (s * 16807 + 0) % 2147483647; return (s - 1) / 2147483646; };
-  }
-  const rand = pseudoRand(roleId.split('').reduce((a, c) => a + c.charCodeAt(0), 0));
-  const stars = Array.from({ length: 50 }, () => ({
-    x: (rand() * W).toFixed(1), y: (rand() * H).toFixed(1),
-    r: (rand() * 1.3 + 0.4).toFixed(2), o: (rand() * 0.45 + 0.12).toFixed(2),
-  }));
+  // (stars removed — replaced by perspective grid)
 
   // Distance from pill-center to pill-edge in direction (dx,dy)
   function pillEdgeDist(dx, dy, pw, ph) {
@@ -1382,17 +1380,31 @@ function renderConstellation(roleId, highlightType) {
     </g>`;
   }
 
+  // Perspective grid (replaces dots) — lines converge at vanishing point above SVG
+  const vpX = cx, vpY = -H * 0.22;
+  const numH = 11, numV = 18;
+  const perspGrid = [
+    ...Array.from({length: numH}, (_, i) => {
+      const t = (i + 1) / (numH + 1);
+      const y = (H * t).toFixed(1);
+      const op = (0.04 + t * 0.055).toFixed(3);
+      return `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#8EA4C0" stroke-width="0.7" opacity="${op}"/>`;
+    }),
+    ...Array.from({length: numV}, (_, i) => {
+      const t = i / (numV - 1);
+      const xBot = (W * t).toFixed(1);
+      const op = (0.04 + Math.abs(t - 0.5) * 0.03).toFixed(3);
+      return `<line x1="${vpX.toFixed(1)}" y1="${vpY.toFixed(1)}" x2="${xBot}" y2="${H}" stroke="#8EA4C0" stroke-width="0.7" opacity="${op}"/>`;
+    }),
+  ].join('\n  ');
+
   const svgHTML = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;border-radius:16px;border:1.5px solid #62B6F3" role="img" aria-label="Career constellation map for ${role.title}">
   <defs>
-    <radialGradient id="c-bg" cx="50%" cy="50%" r="65%">
-      <stop offset="0%" stop-color="#FFFFFF"/>
-      <stop offset="65%" stop-color="#F5F6FA"/>
-      <stop offset="100%" stop-color="#ECEEF4"/>
-    </radialGradient>
-    <radialGradient id="c-center-glow" cx="50%" cy="50%" r="22%">
-      <stop offset="0%" stop-color="#E3530F" stop-opacity="0.07"/>
-      <stop offset="100%" stop-color="#E3530F" stop-opacity="0"/>
-    </radialGradient>
+    <linearGradient id="c-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#C6D6E8"/>
+      <stop offset="38%"  stop-color="#E2EBF6"/>
+      <stop offset="100%" stop-color="#F4F7FC"/>
+    </linearGradient>
     <filter id="glow-vertical"  x="-50%" y="-50%" width="200%" height="200%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -1418,12 +1430,11 @@ function renderConstellation(roleId, highlightType) {
     </filter>
   </defs>
 
-  <!-- Background -->
+  <!-- Terrain background -->
   <rect width="${W}" height="${H}" fill="url(#c-bg)" rx="16"/>
-  <rect width="${W}" height="${H}" fill="url(#c-center-glow)" rx="16"/>
 
-  <!-- Dot grid -->
-  ${stars.map(s => `<circle cx="${s.x}" cy="${s.y}" r="${s.r}" fill="#B8BCC8" opacity="${(parseFloat(s.o) * 0.6).toFixed(2)}"/>`).join('\n  ')}
+  <!-- Perspective grid floor -->
+  ${perspGrid}
 
   <!-- Lines -->
   ${pathNodes.map(lineSVG).join('\n  ')}
@@ -1535,6 +1546,221 @@ function showRolePanel(roleId) {
 }
 
 /* ── DOM CONTENT LOADED WIRING ──────────────────────────────── */
+/* ── EXPLORE ALL: FULL ORG GRAPH ─────────────────────────────── */
+function renderExploreAll(highlightId) {
+  const stage   = document.getElementById('constellationStage');
+  const section = document.getElementById('step3');
+  if (!stage || !section) return;
+
+  // ── Canvas
+  const W = 1400, H = 1120, COLS = 4;
+
+  // ── Department order: leadership → technical → customer-facing
+  const DEPT_ORDER = [
+    'Executive',              'Finance & Operations',     'Data Science',          'Insights',
+    'Technology & Engineering','Product Management',      'Product Design',        'Quality',
+    'Marketing',              'Employee Success',         'Sales Development',     'BPTW',
+    'Customer Success',       'Customer Implementation',  'Customer Support',      'Sales',
+  ];
+  const allDepts = (QW_DEPARTMENTS || []).filter(d => d && d !== 'All');
+  const depts = [...DEPT_ORDER.filter(d => allDepts.includes(d)), ...allDepts.filter(d => !DEPT_ORDER.includes(d))];
+  const ROWS = Math.ceil(depts.length / COLS);
+  const CW = W / COLS, CH = H / ROWS;
+
+  // ── Dept palette
+  const DEPT_COLOR = {
+    'Executive': '#003B75', 'Finance & Operations': '#0077CD',
+    'Data Science': '#6366F1', 'Insights': '#059669',
+    'Technology & Engineering': '#7C3AED', 'Product Management': '#0EA5E9',
+    'Product Design': '#EC4899', 'Quality': '#14B8A6',
+    'Marketing': '#D97706', 'Employee Success': '#10B981',
+    'Sales Development': '#E3530F', 'BPTW': '#64748B',
+    'Customer Success': '#0077CD', 'Customer Implementation': '#2D7D46',
+    'Customer Support': '#62B6F3', 'Sales': '#C2410C',
+  };
+  const deptColor = d => DEPT_COLOR[d] || '#888';
+
+  // ── Group roles by dept & compute positions
+  const byDept = {};
+  depts.forEach(d => { byDept[d] = []; });
+  Object.values(QW_ROLES).forEach(r => { if (byDept[r.dept] !== undefined) byDept[r.dept].push(r); });
+
+  const deptCell = {};
+  depts.forEach((dept, i) => {
+    const col = i % COLS, row = Math.floor(i / COLS);
+    deptCell[dept] = { x: col * CW, y: row * CH, cx: col * CW + CW / 2, cy: row * CH + CH / 2 };
+  });
+
+  const rolePos = {};
+  depts.forEach(dept => {
+    const roles = byDept[dept] || [];
+    const cell  = deptCell[dept];
+    if (!roles.length) return;
+    const perRow = 3;
+    const nodeW  = Math.min(108, (CW - 48) / perRow - 6);
+    const nodeH  = 27, gapX = 7, gapY = 9;
+    const nRows  = Math.ceil(roles.length / perRow);
+    const blockW = perRow * nodeW + (perRow - 1) * gapX;
+    const blockH = nRows  * nodeH + (nRows  - 1) * gapY;
+    const startX = cell.cx - blockW / 2;
+    const startY = cell.cy - blockH / 2 + 10;
+    roles.forEach((role, i) => {
+      const r = Math.floor(i / perRow), c = i % perRow;
+      rolePos[role.id] = {
+        x: startX + c * (nodeW + gapX) + nodeW / 2,
+        y: startY + r * (nodeH + gapY) + nodeH / 2,
+        w: nodeW, h: nodeH,
+      };
+    });
+  });
+
+  // ── Pre-compute highlight role connections
+  const hlRole = QW_ROLES[highlightId];
+  const hlConnected = new Set([
+    highlightId,
+    ...(hlRole?.next?.vertical  || []),
+    ...(hlRole?.next?.lateral   || []),
+    ...(hlRole?.next?.crossDept || []),
+  ]);
+
+  // ── Connection lines
+  const lineColorMap = { vertical: '#E3530F', lateral: '#0077CD', crossDept: '#003B75' };
+  const lineDashMap  = { vertical: '',        lateral: '5 3',     crossDept: '2 3'     };
+  const connLines = [];
+  const drawn = new Set();
+  Object.values(QW_ROLES).forEach(role => {
+    const src = rolePos[role.id];
+    if (!src) return;
+    const addLine = (ids, type) => (ids || []).forEach(tid => {
+      const dst = rolePos[tid];
+      if (!dst) return;
+      const key = [role.id, tid].sort().join('|') + type;
+      if (drawn.has(key)) return;
+      drawn.add(key);
+      const isHL = role.id === highlightId || tid === highlightId;
+      connLines.push({ x1: src.x, y1: src.y, x2: dst.x, y2: dst.y, type, ids: [role.id, tid], isHL });
+    });
+    addLine(role.next?.vertical,  'vertical');
+    addLine(role.next?.lateral,   'lateral');
+    addLine(role.next?.crossDept, 'crossDept');
+  });
+
+  // ── SVG construction
+  // Perspective grid
+  const vpX = W / 2, vpY = -H * 0.18;
+  const pgH = Array.from({length: 12}, (_, i) => {
+    const t = (i + 1) / 13, y = (H * t).toFixed(1), op = (0.035 + t * 0.05).toFixed(3);
+    return `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#8090A8" stroke-width="0.6" opacity="${op}"/>`;
+  }).join('');
+  const pgV = Array.from({length: 18}, (_, i) => {
+    const t = i / 17, xb = (W * t).toFixed(1);
+    return `<line x1="${vpX.toFixed(1)}" y1="${vpY.toFixed(1)}" x2="${xb}" y2="${H}" stroke="#8090A8" stroke-width="0.6" opacity="0.04"/>`;
+  }).join('');
+
+  const zonesHTML = depts.map(dept => {
+    const cell = deptCell[dept], color = deptColor(dept);
+    return `
+    <rect x="${(cell.x+5).toFixed(1)}" y="${(cell.y+5).toFixed(1)}" width="${(CW-10).toFixed(1)}" height="${(CH-10).toFixed(1)}" rx="10" fill="${color}" fill-opacity="0.05" stroke="${color}" stroke-width="1" stroke-opacity="0.18"/>
+    <text x="${cell.cx.toFixed(1)}" y="${(cell.y+19).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="8.5" font-family="Inter,sans-serif" font-weight="700" letter-spacing="0.07em" opacity="0.65">${dept.toUpperCase()}</text>`;
+  }).join('');
+
+  const linesHTML = connLines.map(l => {
+    const c  = lineColorMap[l.type] || '#aaa';
+    const d  = lineDashMap[l.type]  || '';
+    const op = l.isHL ? '0.55' : '0.11';
+    const sw = l.isHL ? '2'    : '0.8';
+    return `<line class="ea-line" data-ids="${l.ids.join('|')}" x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}" x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}" stroke="${c}" stroke-width="${sw}" opacity="${op}" stroke-dasharray="${d}"/>`;
+  }).join('');
+
+  const nodesHTML = Object.values(QW_ROLES).map(role => {
+    const pos    = rolePos[role.id];
+    if (!pos) return '';
+    const isHL   = role.id === highlightId;
+    const isConn = hlConnected.has(role.id) && !isHL;
+    const color  = deptColor(role.dept);
+    const label  = role.title.length > 16 ? role.title.slice(0, 14) + '…' : role.title;
+    const opBase = isHL ? '1' : isConn ? '1' : '0.42';
+    return `
+    <g class="ea-node" data-role-id="${role.id}" style="cursor:pointer;opacity:${opBase}">
+      <rect x="${(pos.x - pos.w/2).toFixed(1)}" y="${(pos.y - pos.h/2).toFixed(1)}" width="${pos.w.toFixed(1)}" height="${pos.h}" rx="7"
+        fill="${isHL ? '#E3530F' : color}" fill-opacity="${isHL ? '1' : isConn ? '0.18' : '0.10'}"
+        stroke="${isHL ? '#FF7500' : color}" stroke-width="${isHL ? '2.5' : isConn ? '1.5' : '1'}" stroke-opacity="${isHL ? '1' : '0.55'}"
+        ${isHL ? 'filter="url(#ea-glow)"' : ''}/>
+      <text x="${pos.x.toFixed(1)}" y="${(pos.y + 3.5).toFixed(1)}" text-anchor="middle"
+        fill="${isHL ? '#fff' : color}" font-size="7.5" font-family="Inter,sans-serif"
+        font-weight="${isHL ? '700' : '500'}" pointer-events="none">${label}</text>
+    </g>`;
+  }).join('');
+
+  stage.innerHTML = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;border-radius:16px" role="img" aria-label="Full career map — all roles at Quantum Workplace">
+  <defs>
+    <linearGradient id="ea-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#C4D4E5"/>
+      <stop offset="40%"  stop-color="#E0EAF5"/>
+      <stop offset="100%" stop-color="#F3F7FB"/>
+    </linearGradient>
+    <filter id="ea-glow" x="-40%" y="-60%" width="180%" height="220%">
+      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#E3530F" flood-opacity="0.45"/>
+    </filter>
+    <filter id="ea-node-shadow" x="-25%" y="-40%" width="150%" height="180%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#ea-bg)" rx="16"/>
+  ${pgH}${pgV}
+  ${zonesHTML}
+  ${linesHTML}
+  ${nodesHTML}
+</svg>`;
+
+  // ── Wire interactions
+  stage.querySelectorAll('.ea-node').forEach(node => {
+    const rId = node.dataset.roleId;
+    if (!rId) return;
+
+    // Click: re-render highlighting this role (stay in full map)
+    node.addEventListener('click', () => {
+      constellationCurrentId = rId;
+      renderExploreAll(rId);
+      updateConstellationBreadcrumb();
+      const heading = document.getElementById('step3Heading');
+      if (heading) heading.textContent = `Every path from ${QW_ROLES[rId]?.title || ''}.`;
+    });
+
+    // Hover: highlight connections, dim others
+    node.addEventListener('mouseenter', () => {
+      const r = QW_ROLES[rId];
+      const conn = new Set([rId, ...(r?.next?.vertical || []), ...(r?.next?.lateral || []), ...(r?.next?.crossDept || [])]);
+      stage.querySelectorAll('.ea-node').forEach(n => { n.style.opacity = conn.has(n.dataset.roleId) ? '1' : '0.08'; });
+      stage.querySelectorAll('.ea-line').forEach(l => {
+        const ids = (l.dataset.ids || '').split('|');
+        const hit = ids.includes(rId);
+        l.style.opacity      = hit ? '0.75' : '0.04';
+        l.style.strokeWidth  = hit ? '2.2'  : '0.5';
+      });
+    });
+
+    // Mouse leave: restore highlight-role state
+    node.addEventListener('mouseleave', () => {
+      stage.querySelectorAll('.ea-node').forEach(n => {
+        const nId   = n.dataset.roleId;
+        const isHL2 = nId === highlightId;
+        const isCn2 = hlConnected.has(nId) && !isHL2;
+        n.style.opacity = isHL2 ? '1' : isCn2 ? '1' : '0.42';
+      });
+      stage.querySelectorAll('.ea-line').forEach(l => {
+        const ids   = (l.dataset.ids || '').split('|');
+        const isHL2 = ids.includes(highlightId);
+        l.style.opacity     = isHL2 ? '0.55' : '0.11';
+        l.style.strokeWidth = isHL2 ? '2'    : '0.8';
+      });
+    });
+  });
+
+  section.style.display = '';
+  requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // Constellation filter buttons
   document.getElementById('cFilterBar')?.addEventListener('click', (e) => {
@@ -1545,12 +1771,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const type = btn.dataset.type;
 
     if (type === 'explore-all') {
-      // Enter explore mode: clicking nodes navigates instead of opening modal
+      // Enter explore mode: full 93-role map, click highlights role + connections
       constellationExplore   = true;
       constellationCurrentId = selectedRoleId;
       constellationHistory   = [];
       document.getElementById('constellationStage')?.classList.add('explore-mode');
-      renderConstellation(selectedRoleId, null);
+      renderExploreAll(selectedRoleId);
       updateConstellationBreadcrumb();
     } else {
       // Exit explore mode if active
