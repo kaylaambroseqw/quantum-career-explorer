@@ -1213,6 +1213,8 @@ blockquote {
 }
 .constellation-stage.explore-mode svg {
   height: 100%; /* override height:auto — SVG fills the fixed container */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Feature context label */
