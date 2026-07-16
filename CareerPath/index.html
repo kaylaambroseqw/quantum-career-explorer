@@ -218,6 +218,9 @@
         <h2>What's driving your next move?</h2>
         <p class="section-sub">Based on your role as <strong id="step2RoleName">—</strong>, pick the scenario that resonates most.</p>
       </div>
+      <div class="step-actions-bar">
+        <button class="btn-start-over" onclick="startOver()">↩ Start Over</button>
+      </div>
       <div class="path-cards-grid" id="pathCardsGrid">
         <!-- populated by script.js when a role is selected -->
       </div>
@@ -231,12 +234,17 @@
         <p class="section-tag">Step 3 — See where you can go</p>
         <h2 id="step3Heading">Every realistic move, mapped.</h2>
         <p class="section-sub">Click any role to see what it takes and how to get there.</p>
-        <div class="c-filter-bar" id="cFilterBar">
-          <button class="c-filter-btn active" data-type="">All paths</button>
-          <button class="c-filter-btn c-filter-vertical"  data-type="vertical">↑ Vertical</button>
-          <button class="c-filter-btn c-filter-lateral"   data-type="lateral">↔ Lateral</button>
-          <button class="c-filter-btn c-filter-crossdept" data-type="crossDept">⟺ Cross-dept</button>
+        <div class="c-filter-bar-row">
+          <div class="c-filter-bar" id="cFilterBar">
+            <button class="c-filter-btn active" data-type="">All paths</button>
+            <button class="c-filter-btn c-filter-vertical"  data-type="vertical">↑ Vertical</button>
+            <button class="c-filter-btn c-filter-lateral"   data-type="lateral">↔ Lateral</button>
+            <button class="c-filter-btn c-filter-crossdept" data-type="crossDept">⟺ Cross-dept</button>
+            <button class="c-filter-btn c-filter-explore"   data-type="explore-all">⬚ Explore All</button>
+          </div>
+          <button class="btn-start-over" onclick="startOver()">↩ Start Over</button>
         </div>
+        <div id="constellationBreadcrumb" class="c-breadcrumb" style="display:none"></div>
       </div>
       <div class="constellation-stage" id="constellationStage">
         <!-- SVG rendered by script.js -->
