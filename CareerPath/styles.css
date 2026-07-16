@@ -1168,6 +1168,39 @@ blockquote {
   border-radius: 18px;
 }
 
+/* ── EXPLORE-ALL MAP ZOOM CONTROLS ──────────────────────────── */
+.ea-map-controls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 20;
+}
+.ea-zoom-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1.5px solid rgba(0,59,117,0.22);
+  background: rgba(255,255,255,0.88);
+  color: #003B75;
+  font-size: 17px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  backdrop-filter: blur(10px);
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,.10);
+  user-select: none;
+}
+.ea-zoom-btn:hover { background: #003B75; color: #fff; border-color: #003B75; }
+.ea-zoom-reset-btn { font-size: 14px; }
+
 /* Node hover animation */
 .c-node { transition: opacity .25s ease; }
 .c-node:not(.c-center):hover .c-node-circle { filter: brightness(1.3); }
