@@ -1215,6 +1215,7 @@ blockquote {
   height: 100%; /* override height:auto — SVG fills the fixed container */
   user-select: none;
   -webkit-user-select: none;
+  touch-action: none; /* block touch scroll so the map handles all touch input */
 }
 
 /* Feature context label */
