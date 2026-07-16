@@ -2060,8 +2060,8 @@ function renderExploreAll(highlightId) {
 
   // ── Scroll wheel: zoom toward cursor position (viewBox stays square)
   eaSvg.addEventListener('wheel', (e) => {
+    e.preventDefault(); // always block page scroll when cursor is over the map
     if (exploreZoomed) return;
-    e.preventDefault();
     const vb   = eaSvg.getAttribute('viewBox').split(' ').map(Number);
     const [vx, vy, vw, vh] = vb;
     const factor = e.deltaY < 0 ? 0.82 : 1 / 0.82;
