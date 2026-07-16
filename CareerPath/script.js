@@ -2080,10 +2080,12 @@ function renderExploreAll(highlightId) {
   }, { passive: false });
 
   // ── Pointer drag: pan when map-zoomed in
+  eaSvg.addEventListener('selectstart', (e) => e.preventDefault());
   eaSvg.addEventListener('pointerdown', (e) => {
     if (exploreZoomed || e.target.closest('.ea-node') || e.target.closest('#ea-overlay')) return;
     const vb = eaSvg.getAttribute('viewBox').split(' ').map(Number);
     if (vb[2] >= _eaCanvasW - 1) return; // not zoomed, skip drag
+    e.preventDefault(); // prevent text selection on drag start
     e.currentTarget.setPointerCapture(e.pointerId);
     eaSvg.style.cursor = 'grabbing';
     const rect = eaSvg.getBoundingClientRect();
