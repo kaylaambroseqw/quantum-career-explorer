@@ -28,6 +28,7 @@ let _eaRolePos         = {};      // cached role positions from last renderExplo
 let _eaDeptColor       = {};      // cached dept colors from last renderExploreAll
 let _eaCanvasW         = 1400;    // canvas width for current explore-all render
 let _eaCanvasH         = 1120;    // canvas height for current explore-all render
+let _eaPreRoleZoomVB   = null;    // viewBox before role-zoom, restored on zoom-out
 
 /* ── CAREER PATHWAY CANVAS ──────────────────────────────────── */
 (function () {
@@ -1607,16 +1608,18 @@ function zoomExploreToRole(rId) {
   const role  = QW_ROLES[rId];
   if (!pos || !role) return;
 
-  const W = 1400, H = 1120;
+  // Save current viewBox so zoom-out can restore map zoom level
+  _eaPreRoleZoomVB = svg.getAttribute('viewBox').split(' ').map(Number);
+
   exploreZoomed     = true;
   exploreSelectedId = rId;
 
-  // ── 1. Compute zoomed viewBox (3.9× zoom, clamped to SVG bounds)
+  // ── 1. Compute zoomed viewBox (~4× zoom, clamped to SVG bounds)
   const zW = 360, zH = 290;
   let vbX = pos.x - zW / 2;
   let vbY = pos.y - zH / 2;
-  vbX = Math.max(0, Math.min(W - zW, vbX));
-  vbY = Math.max(0, Math.min(H - zH, vbY));
+  vbX = Math.max(0, Math.min(_eaCanvasW - zW, vbX));
+  vbY = Math.max(0, Math.min(_eaCanvasH - zH, vbY));
   animateViewBox(svg, [vbX, vbY, zW, zH]);
 
   // ── 2. Dim non-connected nodes (extra dim while zoomed)
@@ -1732,8 +1735,10 @@ function zoomExploreOut() {
   const svg = stage.querySelector('svg[id="ea-svg"]');
   if (!svg) return;
 
-  // Animate back to full view
-  animateViewBox(svg, [0, 0, _eaCanvasW, _eaCanvasH]);
+  // Animate back to the map zoom level that was active before the role zoom
+  const restoreVB = _eaPreRoleZoomVB || [0, 0, _eaCanvasW, _eaCanvasH];
+  animateViewBox(svg, restoreVB);
+  _eaPreRoleZoomVB = null;
   exploreZoomed = false;
 
   // Clear overlay
@@ -1767,6 +1772,37 @@ function zoomExploreOut() {
   updateConstellationBreadcrumb();
 }
 
+/* ── EXPLORE-ALL MAP ZOOM (button / scroll / reset) ─────────── */
+function eaMapZoomIn() {
+  const svg = document.querySelector('#ea-svg');
+  if (!svg || exploreZoomed) return;
+  const [x, y, w, h] = svg.getAttribute('viewBox').split(' ').map(Number);
+  const factor = 0.70;
+  const newW = Math.max(300, w * factor);
+  const newH = Math.max(300, h * factor);
+  const nx   = Math.max(0, Math.min(_eaCanvasW - newW, x + (w - newW) / 2));
+  const ny   = Math.max(0, Math.min(_eaCanvasH - newH, y + (h - newH) / 2));
+  animateViewBox(svg, [nx, ny, newW, newH]);
+}
+
+function eaMapZoomOut() {
+  const svg = document.querySelector('#ea-svg');
+  if (!svg || exploreZoomed) return;
+  const [x, y, w, h] = svg.getAttribute('viewBox').split(' ').map(Number);
+  const factor = 1 / 0.70;
+  const newW = Math.min(_eaCanvasW, w * factor);
+  const newH = Math.min(_eaCanvasH, h * factor);
+  const nx   = Math.max(0, Math.min(_eaCanvasW - newW, x + (w - newW) / 2));
+  const ny   = Math.max(0, Math.min(_eaCanvasH - newH, y + (h - newH) / 2));
+  animateViewBox(svg, [nx, ny, newW, newH]);
+}
+
+function eaMapZoomReset() {
+  const svg = document.querySelector('#ea-svg');
+  if (!svg) return;
+  animateViewBox(svg, [0, 0, _eaCanvasW, _eaCanvasH]);
+}
+
 function renderExploreAll(highlightId) {
   const stage   = document.getElementById('constellationStage');
   const section = document.getElementById('step3');
@@ -1784,7 +1820,7 @@ function renderExploreAll(highlightId) {
   // ── Two-ring dept assignment
   const INNER_RING = ['Executive','Finance & Operations','Data Science','Insights','Employee Success','BPTW','Quality','Product Design'];
   const OUTER_RING = ['Technology & Engineering','Product Management','Marketing','Sales','Customer Success','Customer Implementation','Customer Support','Sales Development'];
-  const R_INNER = 320, R_OUTER = 568;
+  const R_INNER = 355, R_OUTER = 578;
 
   // ── QW Brand-aligned color palette (4 families from brand expression)
   const DEPT_COLOR = {
@@ -1823,9 +1859,9 @@ function renderExploreAll(highlightId) {
   allOrdered.forEach(d => { byDept[d] = []; });
   Object.values(QW_ROLES).forEach(r => { if (byDept[r.dept] !== undefined) byDept[r.dept].push(r); });
 
-  // ── Node & zone dimensions
-  const nodeW = 84, nodeH = 28, perRow = 2, gapX = 6, gapY = 7, padding = 12, labelH = 20;
-  const zoneW = perRow * nodeW + (perRow - 1) * gapX + 2 * padding; // 198
+  // ── Node & zone dimensions (enlarged for readability)
+  const nodeW = 102, nodeH = 30, perRow = 2, gapX = 7, gapY = 8, padding = 13, labelH = 20;
+  const zoneW = perRow * nodeW + (perRow - 1) * gapX + 2 * padding; // 237
 
   // ── Compute zone centers and role positions for both rings
   const deptZone = {}, rolePos = {};
@@ -1916,18 +1952,18 @@ function renderExploreAll(highlightId) {
     const isHL   = role.id === highlightId;
     const isConn = hlConnected.has(role.id) && !isHL;
     const color  = deptColor(role.dept);
-    const maxCh  = 13;
+    const maxCh  = 16;
     const label  = role.title.length > maxCh ? role.title.slice(0, maxCh - 1) + '…' : role.title;
     const opBase = isHL ? '1' : isConn ? '0.88' : '0.58';
     return `
     <g class="ea-node" data-role-id="${role.id}" style="cursor:pointer;opacity:${opBase}">
       <title>${role.title} — ${role.dept}</title>
       <rect x="${(pos.x - pos.w/2).toFixed(1)}" y="${(pos.y - pos.h/2).toFixed(1)}" width="${pos.w}" height="${pos.h}" rx="7"
-        fill="${isHL ? '#E3530F' : color}" fill-opacity="${isHL ? '1' : '0.13'}"
-        stroke="${isHL ? '#FF7500' : color}" stroke-width="${isHL ? '2.5' : '1.2'}" stroke-opacity="${isHL ? '1' : '0.6'}"
+        fill="${isHL ? '#E3530F' : color}" fill-opacity="${isHL ? '1' : '0.14'}"
+        stroke="${isHL ? '#FF7500' : color}" stroke-width="${isHL ? '2.5' : '1.3'}" stroke-opacity="${isHL ? '1' : '0.65'}"
         ${isHL ? 'filter="url(#ea-glow)"' : ''}/>
-      <text x="${pos.x.toFixed(1)}" y="${(pos.y + 3.5).toFixed(1)}" text-anchor="middle"
-        fill="${isHL ? '#fff' : color}" font-size="7" font-family="Inter,sans-serif"
+      <text x="${pos.x.toFixed(1)}" y="${(pos.y + 4).toFixed(1)}" text-anchor="middle"
+        fill="${isHL ? '#fff' : color}" font-size="7.5" font-family="Inter,sans-serif"
         font-weight="${isHL ? '700' : '500'}" pointer-events="none">${label}</text>
     </g>`;
   }).join('');
@@ -2006,7 +2042,7 @@ function renderExploreAll(highlightId) {
     restoreHighlightState();
   });
 
-  // ── Node clicks → zoom
+  // ── Node clicks → role zoom
   eaSvg.querySelectorAll('.ea-node').forEach(node => {
     const rId = node.dataset.roleId; if (!rId) return;
     node.addEventListener('click', (e) => {
@@ -2016,11 +2052,67 @@ function renderExploreAll(highlightId) {
     });
   });
 
-  // ── SVG background click → zoom out
+  // ── Background click → zoom out of role (not map zoom)
   eaSvg.addEventListener('click', (e) => {
     if (!exploreZoomed) return;
     if (!e.target.closest('.ea-node') && !e.target.closest('#ea-overlay')) zoomExploreOut();
   });
+
+  // ── Scroll wheel: zoom toward cursor position
+  eaSvg.addEventListener('wheel', (e) => {
+    if (exploreZoomed) return;
+    e.preventDefault();
+    const vb   = eaSvg.getAttribute('viewBox').split(' ').map(Number);
+    const [vx, vy, vw, vh] = vb;
+    const factor = e.deltaY < 0 ? 0.82 : 1 / 0.82;
+    const newW   = Math.min(_eaCanvasW, Math.max(280, vw * factor));
+    const newH   = Math.min(_eaCanvasH, Math.max(280, vh * factor));
+    // Keep cursor point fixed in SVG space
+    const rect = eaSvg.getBoundingClientRect();
+    const mx   = vx + (e.clientX - rect.left) / rect.width  * vw;
+    const my   = vy + (e.clientY - rect.top)  / rect.height * vh;
+    let nx = mx - (mx - vx) * (newW / vw);
+    let ny = my - (my - vy) * (newH / vh);
+    nx = Math.max(0, Math.min(_eaCanvasW - newW, nx));
+    ny = Math.max(0, Math.min(_eaCanvasH - newH, ny));
+    eaSvg.setAttribute('viewBox', `${nx.toFixed(1)} ${ny.toFixed(1)} ${newW.toFixed(1)} ${newH.toFixed(1)}`);
+  }, { passive: false });
+
+  // ── Pointer drag: pan when map-zoomed in
+  eaSvg.addEventListener('pointerdown', (e) => {
+    if (exploreZoomed || e.target.closest('.ea-node') || e.target.closest('#ea-overlay')) return;
+    const vb = eaSvg.getAttribute('viewBox').split(' ').map(Number);
+    if (vb[2] >= _eaCanvasW - 1) return; // not zoomed, skip drag
+    e.currentTarget.setPointerCapture(e.pointerId);
+    eaSvg.style.cursor = 'grabbing';
+    const rect = eaSvg.getBoundingClientRect();
+    const scaleX = vb[2] / rect.width, scaleY = vb[3] / rect.height;
+    const origVB = [...vb], sx = e.clientX, sy = e.clientY;
+    const onMove = (ev) => {
+      const dx = (ev.clientX - sx) * scaleX, dy = (ev.clientY - sy) * scaleY;
+      const nx = Math.max(0, Math.min(_eaCanvasW - origVB[2], origVB[0] - dx));
+      const ny = Math.max(0, Math.min(_eaCanvasH - origVB[3], origVB[1] - dy));
+      eaSvg.setAttribute('viewBox', `${nx.toFixed(1)} ${ny.toFixed(1)} ${origVB[2].toFixed(1)} ${origVB[3].toFixed(1)}`);
+    };
+    const onUp = () => {
+      eaSvg.style.cursor = '';
+      eaSvg.removeEventListener('pointermove', onMove);
+      eaSvg.removeEventListener('pointerup', onUp);
+    };
+    eaSvg.addEventListener('pointermove', onMove);
+    eaSvg.addEventListener('pointerup', onUp);
+  });
+
+  // ── Zoom button overlay (appended after SVG so it floats on top)
+  const existingControls = stage.querySelector('.ea-map-controls');
+  if (existingControls) existingControls.remove();
+  const zoomControls = document.createElement('div');
+  zoomControls.className = 'ea-map-controls';
+  zoomControls.innerHTML =
+    `<button class="ea-zoom-btn" onclick="eaMapZoomIn()" title="Zoom in">+</button>` +
+    `<button class="ea-zoom-btn" onclick="eaMapZoomOut()" title="Zoom out">−</button>` +
+    `<button class="ea-zoom-btn ea-zoom-reset-btn" onclick="eaMapZoomReset()" title="Reset zoom">⊙</button>`;
+  stage.appendChild(zoomControls);
 
   section.style.display = '';
   requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
