@@ -26,6 +26,8 @@ let exploreZoomed      = false;   // true when zoomed into a role in Explore All
 let exploreSelectedId  = null;    // role currently zoomed to
 let _eaRolePos         = {};      // cached role positions from last renderExploreAll
 let _eaDeptColor       = {};      // cached dept colors from last renderExploreAll
+let _eaCanvasW         = 1400;    // canvas width for current explore-all render
+let _eaCanvasH         = 1120;    // canvas height for current explore-all render
 
 /* ── CAREER PATHWAY CANVAS ──────────────────────────────────── */
 (function () {
@@ -848,28 +850,36 @@ function goBackConstellation(steps) {
 function updateConstellationBreadcrumb() {
   const bc = document.getElementById('constellationBreadcrumb');
   if (!bc) return;
-  if (!constellationExplore || !constellationCurrentId) {
-    bc.style.display = 'none';
-    return;
-  }
+
+  // Always show role title when Step 3 has an active role
+  const displayId = constellationCurrentId || selectedRoleId;
+  const role = QW_ROLES[displayId];
+  if (!role) { bc.style.display = 'none'; return; }
   bc.style.display = '';
 
-  // When zoomed in, show "Full map" zoom-out button + zoomed role label
+  // When zoomed in: show "Full map" button + zoomed role name
   if (exploreZoomed && exploreSelectedId) {
-    const role = QW_ROLES[exploreSelectedId];
+    const zRole = QW_ROLES[exploreSelectedId];
     bc.innerHTML = `<button class="crumb-back crumb-zoom-out" onclick="zoomExploreOut()">⊙ Full map</button>` +
-      `<div class="crumb-trail"><span class="crumb-current">${role?.title || ''}</span></div>`;
+      `<div class="crumb-trail"><span class="crumb-current">${zRole?.title || ''}</span></div>`;
     return;
   }
 
-  const trail = [...constellationHistory, constellationCurrentId];
-  const crumbs = trail.map((id, i) => {
-    const t = QW_ROLES[id]?.title || id;
-    if (i === trail.length - 1) return `<span class="crumb-current">${t}</span>`;
-    const stepsBack = trail.length - 1 - i;
-    return `<span class="crumb-link" onclick="goBackConstellation(${stepsBack})">${t}</span>`;
-  }).join('<span class="crumb-sep">›</span>');
-  bc.innerHTML = `<button class="crumb-back" onclick="goBackConstellation(1)" ${constellationHistory.length === 0 ? 'disabled' : ''}>← Back</button><div class="crumb-trail">${crumbs}</div>`;
+  // In explore mode with navigation history: show full trail + Back
+  if (constellationExplore && constellationHistory.length > 0) {
+    const trail = [...constellationHistory, displayId];
+    const crumbs = trail.map((id, i) => {
+      const t = QW_ROLES[id]?.title || id;
+      if (i === trail.length - 1) return `<span class="crumb-current">${t}</span>`;
+      const stepsBack = trail.length - 1 - i;
+      return `<span class="crumb-link" onclick="goBackConstellation(${stepsBack})">${t}</span>`;
+    }).join('<span class="crumb-sep">›</span>');
+    bc.innerHTML = `<button class="crumb-back" onclick="goBackConstellation(1)">← Back</button><div class="crumb-trail">${crumbs}</div>`;
+    return;
+  }
+
+  // Default: just show current role title (no Back button)
+  bc.innerHTML = `<div class="crumb-trail"><span class="crumb-current">${role.title}</span></div>`;
 }
 
 /* ── ROLE SELECTOR ──────────────────────────────────────────── */
@@ -1526,6 +1536,10 @@ function renderConstellation(roleId, highlightType) {
   // Show and scroll
   section.style.display = '';
   requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+
+  // Always update breadcrumb when constellation renders
+  constellationCurrentId = roleId;
+  updateConstellationBreadcrumb();
 }
 
 /* ── ROLE DETAIL PANEL ──────────────────────────────────────── */
@@ -1719,14 +1733,14 @@ function zoomExploreOut() {
   if (!svg) return;
 
   // Animate back to full view
-  animateViewBox(svg, [0, 0, 1400, 1120]);
+  animateViewBox(svg, [0, 0, _eaCanvasW, _eaCanvasH]);
   exploreZoomed = false;
 
   // Clear overlay
   const overlay = svg.querySelector('#ea-overlay');
   if (overlay) overlay.innerHTML = '';
 
-  // Restore node/line opacities to the current highlight state
+  // Restore node/line opacities to the current highlight state (lines hidden by default)
   const hlId   = constellationCurrentId;
   const hlRole = QW_ROLES[hlId];
   const hlConn = new Set([
@@ -1737,15 +1751,17 @@ function zoomExploreOut() {
   ]);
   svg.querySelectorAll('.ea-node').forEach(n => {
     const nId = n.dataset.roleId;
+    const isHL2 = nId === hlId;
+    const isCn2 = hlConn.has(nId) && !isHL2;
     n.style.transition = 'opacity 0.35s ease';
-    n.style.opacity    = (nId === hlId || hlConn.has(nId)) ? '1' : '0.42';
+    n.style.opacity    = isHL2 ? '1' : isCn2 ? '0.85' : '0.55';
   });
   svg.querySelectorAll('.ea-line').forEach(l => {
     const ids = (l.dataset.ids || '').split('|');
     const hit = ids.includes(hlId);
-    l.style.transition  = 'opacity 0.35s ease, stroke-width 0.35s ease';
-    l.style.opacity     = hit ? '0.55' : '0.11';
-    l.style.strokeWidth = hit ? '2'    : '0.8';
+    l.style.transition  = 'opacity 0.35s ease';
+    l.style.opacity     = hit ? '0.45' : '0'; // hidden by default
+    l.style.strokeWidth = hit ? '2' : '1';
   });
 
   updateConstellationBreadcrumb();
@@ -1760,73 +1776,95 @@ function renderExploreAll(highlightId) {
   exploreZoomed     = false;
   exploreSelectedId = null;
 
-  // ── Canvas
-  const W = 1400, H = 1120, COLS = 4;
+  // ── Canvas (square for circular layout)
+  const W = 1400, H = 1400;
+  const cx = 700, cy = 700;
+  _eaCanvasW = W; _eaCanvasH = H;
 
-  // ── Department order: leadership → technical → customer-facing
-  const DEPT_ORDER = [
-    'Executive',              'Finance & Operations',     'Data Science',          'Insights',
-    'Technology & Engineering','Product Management',      'Product Design',        'Quality',
-    'Marketing',              'Employee Success',         'Sales Development',     'BPTW',
-    'Customer Success',       'Customer Implementation',  'Customer Support',      'Sales',
-  ];
-  const allDepts = (QW_DEPARTMENTS || []).filter(d => d && d !== 'All');
-  const depts = [...DEPT_ORDER.filter(d => allDepts.includes(d)), ...allDepts.filter(d => !DEPT_ORDER.includes(d))];
-  const ROWS = Math.ceil(depts.length / COLS);
-  const CW = W / COLS, CH = H / ROWS;
+  // ── Two-ring dept assignment
+  const INNER_RING = ['Executive','Finance & Operations','Data Science','Insights','Employee Success','BPTW','Quality','Product Design'];
+  const OUTER_RING = ['Technology & Engineering','Product Management','Marketing','Sales','Customer Success','Customer Implementation','Customer Support','Sales Development'];
+  const R_INNER = 320, R_OUTER = 568;
 
-  // ── Dept palette
+  // ── QW Brand-aligned color palette (4 families from brand expression)
   const DEPT_COLOR = {
-    'Executive': '#003B75', 'Finance & Operations': '#0077CD',
-    'Data Science': '#6366F1', 'Insights': '#059669',
-    'Technology & Engineering': '#7C3AED', 'Product Management': '#0EA5E9',
-    'Product Design': '#EC4899', 'Quality': '#14B8A6',
-    'Marketing': '#D97706', 'Employee Success': '#10B981',
-    'Sales Development': '#E3530F', 'BPTW': '#64748B',
-    'Customer Success': '#0077CD', 'Customer Implementation': '#2D7D46',
-    'Customer Support': '#62B6F3', 'Sales': '#C2410C',
+    // Dark Blue family — leadership/operations
+    'Executive':               '#003B75',
+    'Finance & Operations':    '#004F9A',
+    'Employee Success':        '#1A65B0',
+    'BPTW':                    '#0A4D8C',
+    // QW Orange family — revenue/growth
+    'Marketing':               '#D44D0D',
+    'Sales':                   '#B83A08',
+    'Sales Development':       '#E3530F',
+    'Customer Success':        '#C04510',
+    // Medium Blue family — product/technology
+    'Technology & Engineering':'#005899',
+    'Product Management':      '#0077CD',
+    'Data Science':            '#006AB8',
+    'Quality':                 '#0082D4',
+    // Light Blue family — service/insights
+    'Customer Implementation': '#2D88BE',
+    'Customer Support':        '#4499CC',
+    'Insights':                '#3D91C4',
+    'Product Design':          '#5AABD6',
   };
-  const deptColor = d => DEPT_COLOR[d] || '#888';
+  const deptColor = d => DEPT_COLOR[d] || '#003B75';
 
-  // ── Group roles by dept & compute positions
+  // ── Group roles by dept
+  const allDepts = (QW_DEPARTMENTS || []).filter(d => d && d !== 'All');
+  const validInner  = INNER_RING.filter(d => allDepts.includes(d));
+  const validOuter  = OUTER_RING.filter(d => allDepts.includes(d));
+  const remainDepts = allDepts.filter(d => !INNER_RING.includes(d) && !OUTER_RING.includes(d));
+  const outerDepts  = [...validOuter, ...remainDepts];
+  const allOrdered  = [...validInner, ...outerDepts];
+
   const byDept = {};
-  depts.forEach(d => { byDept[d] = []; });
+  allOrdered.forEach(d => { byDept[d] = []; });
   Object.values(QW_ROLES).forEach(r => { if (byDept[r.dept] !== undefined) byDept[r.dept].push(r); });
 
-  const deptCell = {};
-  depts.forEach((dept, i) => {
-    const col = i % COLS, row = Math.floor(i / COLS);
-    deptCell[dept] = { x: col * CW, y: row * CH, cx: col * CW + CW / 2, cy: row * CH + CH / 2 };
-  });
+  // ── Node & zone dimensions
+  const nodeW = 84, nodeH = 28, perRow = 2, gapX = 6, gapY = 7, padding = 12, labelH = 20;
+  const zoneW = perRow * nodeW + (perRow - 1) * gapX + 2 * padding; // 198
 
-  const rolePos = {};
-  depts.forEach(dept => {
-    const roles = byDept[dept] || [];
-    const cell  = deptCell[dept];
-    if (!roles.length) return;
-    const perRow = 3;
-    const nodeW  = Math.min(108, (CW - 48) / perRow - 6);
-    const nodeH  = 27, gapX = 7, gapY = 9;
-    const nRows  = Math.ceil(roles.length / perRow);
-    const blockW = perRow * nodeW + (perRow - 1) * gapX;
-    const blockH = nRows  * nodeH + (nRows  - 1) * gapY;
-    const startX = cell.cx - blockW / 2;
-    const startY = cell.cy - blockH / 2 + 10;
-    roles.forEach((role, i) => {
-      const r = Math.floor(i / perRow), c = i % perRow;
-      rolePos[role.id] = {
-        x: startX + c * (nodeW + gapX) + nodeW / 2,
-        y: startY + r * (nodeH + gapY) + nodeH / 2,
-        w: nodeW, h: nodeH,
-      };
+  // ── Compute zone centers and role positions for both rings
+  const deptZone = {}, rolePos = {};
+
+  const placeRing = (depts, R, startAngleDeg) => {
+    const N = depts.length;
+    if (!N) return;
+    depts.forEach((dept, i) => {
+      const angle = (startAngleDeg + (i / N) * 360) * Math.PI / 180;
+      const zoneCx = cx + R * Math.cos(angle);
+      const zoneCy = cy + R * Math.sin(angle);
+      const roles  = byDept[dept] || [];
+      const nRows  = Math.max(1, Math.ceil(roles.length / perRow));
+      const zoneH  = nRows * nodeH + Math.max(0, nRows - 1) * gapY + 2 * padding + labelH;
+      const zoneX  = zoneCx - zoneW / 2;
+      const zoneY  = zoneCy - zoneH / 2;
+      deptZone[dept] = { x: zoneX, y: zoneY, w: zoneW, h: zoneH, cx: zoneCx, cy: zoneCy };
+      const startX = zoneX + padding;
+      const startY = zoneY + labelH + padding;
+      roles.forEach((role, j) => {
+        const r = Math.floor(j / perRow), c = j % perRow;
+        rolePos[role.id] = {
+          x: startX + c * (nodeW + gapX) + nodeW / 2,
+          y: startY + r * (nodeH + gapY) + nodeH / 2,
+          w: nodeW, h: nodeH,
+        };
+      });
     });
-  });
+  };
+
+  const outerOffset = outerDepts.length > 0 ? (360 / outerDepts.length) / 2 : 0;
+  placeRing(validInner, R_INNER, -90);
+  placeRing(outerDepts, R_OUTER, -90 + outerOffset);
 
   // Cache for zoom helpers
   _eaRolePos   = rolePos;
   _eaDeptColor = DEPT_COLOR;
 
-  // ── Pre-compute highlight role connections
+  // ── Pre-compute highlight connections
   const hlRole = QW_ROLES[highlightId];
   const hlConnected = new Set([
     highlightId,
@@ -1835,152 +1873,154 @@ function renderExploreAll(highlightId) {
     ...(hlRole?.next?.crossDept || []),
   ]);
 
-  // ── Connection lines
+  // ── Connection lines (hidden by default; highlighted role's lines shown at 0.45)
   const lineColorMap = { vertical: '#E3530F', lateral: '#0077CD', crossDept: '#003B75' };
   const lineDashMap  = { vertical: '',        lateral: '5 3',     crossDept: '2 3'     };
   const connLines = [];
   const drawn = new Set();
   Object.values(QW_ROLES).forEach(role => {
-    const src = rolePos[role.id];
-    if (!src) return;
+    const src = rolePos[role.id]; if (!src) return;
     const addLine = (ids, type) => (ids || []).forEach(tid => {
-      const dst = rolePos[tid];
-      if (!dst) return;
+      const dst = rolePos[tid]; if (!dst) return;
       const key = [role.id, tid].sort().join('|') + type;
-      if (drawn.has(key)) return;
-      drawn.add(key);
+      if (drawn.has(key)) return; drawn.add(key);
       const isHL = role.id === highlightId || tid === highlightId;
       connLines.push({ x1: src.x, y1: src.y, x2: dst.x, y2: dst.y, type, ids: [role.id, tid], isHL });
     });
-    addLine(role.next?.vertical,  'vertical');
-    addLine(role.next?.lateral,   'lateral');
-    addLine(role.next?.crossDept, 'crossDept');
+    addLine(role.next?.vertical, 'vertical');
+    addLine(role.next?.lateral,  'lateral');
+    addLine(role.next?.crossDept,'crossDept');
   });
 
-  // ── SVG construction
-  // Perspective grid
-  const vpX = W / 2, vpY = -H * 0.18;
-  const pgH = Array.from({length: 12}, (_, i) => {
-    const t = (i + 1) / 13, y = (H * t).toFixed(1), op = (0.035 + t * 0.05).toFixed(3);
-    return `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#8090A8" stroke-width="0.6" opacity="${op}"/>`;
-  }).join('');
-  const pgV = Array.from({length: 18}, (_, i) => {
-    const t = i / 17, xb = (W * t).toFixed(1);
-    return `<line x1="${vpX.toFixed(1)}" y1="${vpY.toFixed(1)}" x2="${xb}" y2="${H}" stroke="#8090A8" stroke-width="0.6" opacity="0.04"/>`;
-  }).join('');
-
-  const zonesHTML = depts.map(dept => {
-    const cell = deptCell[dept], color = deptColor(dept);
-    return `
-    <rect x="${(cell.x+5).toFixed(1)}" y="${(cell.y+5).toFixed(1)}" width="${(CW-10).toFixed(1)}" height="${(CH-10).toFixed(1)}" rx="10" fill="${color}" fill-opacity="0.05" stroke="${color}" stroke-width="1" stroke-opacity="0.18"/>
-    <text x="${cell.cx.toFixed(1)}" y="${(cell.y+19).toFixed(1)}" text-anchor="middle" fill="${color}" font-size="8.5" font-family="Inter,sans-serif" font-weight="700" letter-spacing="0.07em" opacity="0.65">${dept.toUpperCase()}</text>`;
-  }).join('');
-
   const linesHTML = connLines.map(l => {
-    const c  = lineColorMap[l.type] || '#aaa';
-    const d  = lineDashMap[l.type]  || '';
-    const op = l.isHL ? '0.55' : '0.11';
-    const sw = l.isHL ? '2'    : '0.8';
+    const c = lineColorMap[l.type] || '#aaa', d = lineDashMap[l.type] || '';
+    const op = l.isHL ? '0.45' : '0', sw = l.isHL ? '2' : '1';
     return `<line class="ea-line" data-ids="${l.ids.join('|')}" x1="${l.x1.toFixed(1)}" y1="${l.y1.toFixed(1)}" x2="${l.x2.toFixed(1)}" y2="${l.y2.toFixed(1)}" stroke="${c}" stroke-width="${sw}" opacity="${op}" stroke-dasharray="${d}"/>`;
   }).join('');
 
+  // ── Zone backgrounds + dept labels
+  const zonesHTML = allOrdered.map(dept => {
+    const z = deptZone[dept]; if (!z) return '';
+    const color = deptColor(dept);
+    const shortLabel = dept.length > 22 ? dept.replace(' & ', ' &\n').split('\n')[0] : dept;
+    return `
+    <rect x="${z.x.toFixed(1)}" y="${z.y.toFixed(1)}" width="${z.w.toFixed(1)}" height="${z.h.toFixed(1)}" rx="10"
+      fill="${color}" fill-opacity="0.07" stroke="${color}" stroke-width="1" stroke-opacity="0.25"/>
+    <text x="${z.cx.toFixed(1)}" y="${(z.y + 14).toFixed(1)}" text-anchor="middle"
+      fill="${color}" font-size="7.5" font-family="Inter,sans-serif" font-weight="700" letter-spacing="0.06em" opacity="0.75">${dept.toUpperCase()}</text>`;
+  }).join('');
+
+  // ── Role nodes
   const nodesHTML = Object.values(QW_ROLES).map(role => {
-    const pos    = rolePos[role.id];
-    if (!pos) return '';
+    const pos = rolePos[role.id]; if (!pos) return '';
     const isHL   = role.id === highlightId;
     const isConn = hlConnected.has(role.id) && !isHL;
     const color  = deptColor(role.dept);
-    const label  = role.title.length > 16 ? role.title.slice(0, 14) + '…' : role.title;
-    const opBase = isHL ? '1' : isConn ? '1' : '0.42';
+    const maxCh  = 13;
+    const label  = role.title.length > maxCh ? role.title.slice(0, maxCh - 1) + '…' : role.title;
+    const opBase = isHL ? '1' : isConn ? '0.88' : '0.58';
     return `
     <g class="ea-node" data-role-id="${role.id}" style="cursor:pointer;opacity:${opBase}">
-      <rect x="${(pos.x - pos.w/2).toFixed(1)}" y="${(pos.y - pos.h/2).toFixed(1)}" width="${pos.w.toFixed(1)}" height="${pos.h}" rx="7"
-        fill="${isHL ? '#E3530F' : color}" fill-opacity="${isHL ? '1' : isConn ? '0.18' : '0.10'}"
-        stroke="${isHL ? '#FF7500' : color}" stroke-width="${isHL ? '2.5' : isConn ? '1.5' : '1'}" stroke-opacity="${isHL ? '1' : '0.55'}"
+      <title>${role.title} — ${role.dept}</title>
+      <rect x="${(pos.x - pos.w/2).toFixed(1)}" y="${(pos.y - pos.h/2).toFixed(1)}" width="${pos.w}" height="${pos.h}" rx="7"
+        fill="${isHL ? '#E3530F' : color}" fill-opacity="${isHL ? '1' : '0.13'}"
+        stroke="${isHL ? '#FF7500' : color}" stroke-width="${isHL ? '2.5' : '1.2'}" stroke-opacity="${isHL ? '1' : '0.6'}"
         ${isHL ? 'filter="url(#ea-glow)"' : ''}/>
       <text x="${pos.x.toFixed(1)}" y="${(pos.y + 3.5).toFixed(1)}" text-anchor="middle"
-        fill="${isHL ? '#fff' : color}" font-size="7.5" font-family="Inter,sans-serif"
+        fill="${isHL ? '#fff' : color}" font-size="7" font-family="Inter,sans-serif"
         font-weight="${isHL ? '700' : '500'}" pointer-events="none">${label}</text>
     </g>`;
   }).join('');
 
-  stage.innerHTML = `<svg id="ea-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;border-radius:16px" role="img" aria-label="Full career map — all roles at Quantum Workplace">
+  // ── Build SVG
+  stage.innerHTML = `<svg id="ea-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;border-radius:16px" role="img" aria-label="Career constellation — all roles at Quantum Workplace">
   <defs>
-    <linearGradient id="ea-bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#C4D4E5"/>
-      <stop offset="40%"  stop-color="#E0EAF5"/>
-      <stop offset="100%" stop-color="#F3F7FB"/>
-    </linearGradient>
-    <filter id="ea-glow" x="-40%" y="-60%" width="180%" height="220%">
-      <feDropShadow dx="0" dy="5" stdDeviation="8" flood-color="#E3530F" flood-opacity="0.45"/>
-    </filter>
-    <filter id="ea-node-shadow" x="-25%" y="-40%" width="150%" height="180%">
-      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.10"/>
+    <radialGradient id="ea-bg" cx="50%" cy="50%" r="54%">
+      <stop offset="0%"   stop-color="#F6F9FC"/>
+      <stop offset="100%" stop-color="#D6E7F4"/>
+    </radialGradient>
+    <filter id="ea-glow" x="-50%" y="-70%" width="200%" height="240%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#E3530F" flood-opacity="0.5"/>
     </filter>
   </defs>
   <rect id="ea-bg-rect" width="${W}" height="${H}" fill="url(#ea-bg)" rx="16"/>
-  ${pgH}${pgV}
-  ${zonesHTML}
+  <!-- Subtle orbit ring guides -->
+  <circle cx="${cx}" cy="${cy}" r="${R_INNER}" fill="none" stroke="#8090A8" stroke-width="0.8" opacity="0.12" stroke-dasharray="4 6"/>
+  <circle cx="${cx}" cy="${cy}" r="${R_OUTER}" fill="none" stroke="#8090A8" stroke-width="0.8" opacity="0.09" stroke-dasharray="4 6"/>
+  <!-- Center badge -->
+  <circle cx="${cx}" cy="${cy}" r="38" fill="#003B75" fill-opacity="0.06" stroke="#003B75" stroke-width="1" stroke-opacity="0.18"/>
+  <text x="${cx}" y="${cy - 5}" text-anchor="middle" fill="#003B75" font-size="9" font-family="Inter,sans-serif" font-weight="700" opacity="0.55">QUANTUM</text>
+  <text x="${cx}" y="${cy + 9}" text-anchor="middle" fill="#003B75" font-size="9" font-family="Inter,sans-serif" font-weight="700" opacity="0.55">WORKPLACE</text>
+  <!-- Connection lines (hidden; revealed on hover) -->
   ${linesHTML}
+  <!-- Department zones -->
+  ${zonesHTML}
+  <!-- Role nodes -->
   ${nodesHTML}
+  <!-- Overlay (ripple + zoomed card) -->
   <g id="ea-overlay"></g>
 </svg>`;
 
-  // ── Wire interactions
-  stage.querySelectorAll('.ea-node').forEach(node => {
-    const rId = node.dataset.roleId;
-    if (!rId) return;
+  // ── Delegated hover via mousemove (avoids node-to-node flicker)
+  const eaSvg = stage.querySelector('#ea-svg');
+  let _hoverRId = null;
 
-    // Click: zoom + burst + expanded card for this role
+  const restoreHighlightState = () => {
+    eaSvg.querySelectorAll('.ea-node').forEach(n => {
+      const nId = n.dataset.roleId, isHL = nId === highlightId, isCn = hlConnected.has(nId) && !isHL;
+      n.style.transition = 'opacity 0.18s ease';
+      n.style.opacity    = isHL ? '1' : isCn ? '0.88' : '0.58';
+    });
+    eaSvg.querySelectorAll('.ea-line').forEach(l => {
+      const hit = (l.dataset.ids || '').split('|').includes(highlightId);
+      l.style.transition  = 'opacity 0.18s ease';
+      l.style.opacity     = hit ? '0.45' : '0';
+      l.style.strokeWidth = hit ? '2' : '1';
+    });
+  };
+
+  eaSvg.addEventListener('mousemove', (e) => {
+    if (exploreZoomed) return;
+    const node = e.target.closest('.ea-node');
+    const rId  = node?.dataset.roleId || null;
+    if (rId === _hoverRId) return;
+    _hoverRId = rId;
+    if (!rId) { restoreHighlightState(); return; }
+    const r    = QW_ROLES[rId];
+    const conn = new Set([rId, ...(r?.next?.vertical || []), ...(r?.next?.lateral || []), ...(r?.next?.crossDept || [])]);
+    eaSvg.querySelectorAll('.ea-node').forEach(n => {
+      n.style.transition = 'opacity 0.15s ease';
+      n.style.opacity    = conn.has(n.dataset.roleId) ? '1' : '0.09';
+    });
+    eaSvg.querySelectorAll('.ea-line').forEach(l => {
+      const hit = (l.dataset.ids || '').split('|').includes(rId);
+      l.style.transition  = 'opacity 0.15s ease';
+      l.style.opacity     = hit ? '0.80' : '0';
+      l.style.strokeWidth = hit ? '2.2' : '1';
+    });
+  });
+
+  eaSvg.addEventListener('mouseleave', () => {
+    if (exploreZoomed) return;
+    _hoverRId = null;
+    restoreHighlightState();
+  });
+
+  // ── Node clicks → zoom
+  eaSvg.querySelectorAll('.ea-node').forEach(node => {
+    const rId = node.dataset.roleId; if (!rId) return;
     node.addEventListener('click', (e) => {
       e.stopPropagation();
       constellationCurrentId = rId;
       zoomExploreToRole(rId);
     });
-
-    // Hover: highlight connections, dim others (skip when zoomed)
-    node.addEventListener('mouseenter', () => {
-      if (exploreZoomed) return;
-      const r = QW_ROLES[rId];
-      const conn = new Set([rId, ...(r?.next?.vertical || []), ...(r?.next?.lateral || []), ...(r?.next?.crossDept || [])]);
-      stage.querySelectorAll('.ea-node').forEach(n => { n.style.opacity = conn.has(n.dataset.roleId) ? '1' : '0.08'; });
-      stage.querySelectorAll('.ea-line').forEach(l => {
-        const ids = (l.dataset.ids || '').split('|');
-        const hit = ids.includes(rId);
-        l.style.opacity      = hit ? '0.75' : '0.04';
-        l.style.strokeWidth  = hit ? '2.2'  : '0.5';
-      });
-    });
-
-    // Mouse leave: restore highlight-role state (skip when zoomed)
-    node.addEventListener('mouseleave', () => {
-      if (exploreZoomed) return;
-      stage.querySelectorAll('.ea-node').forEach(n => {
-        const nId   = n.dataset.roleId;
-        const isHL2 = nId === highlightId;
-        const isCn2 = hlConnected.has(nId) && !isHL2;
-        n.style.opacity = isHL2 ? '1' : isCn2 ? '1' : '0.42';
-      });
-      stage.querySelectorAll('.ea-line').forEach(l => {
-        const ids   = (l.dataset.ids || '').split('|');
-        const isHL2 = ids.includes(highlightId);
-        l.style.opacity     = isHL2 ? '0.55' : '0.11';
-        l.style.strokeWidth = isHL2 ? '2'    : '0.8';
-      });
-    });
   });
 
-  // Click SVG background to zoom out
-  const eaSvg = stage.querySelector('svg[id="ea-svg"]');
-  if (eaSvg) {
-    eaSvg.addEventListener('click', (e) => {
-      if (!exploreZoomed) return;
-      // Only zoom out if click was NOT on a node or overlay
-      if (!e.target.closest('.ea-node') && !e.target.closest('#ea-overlay')) {
-        zoomExploreOut();
-      }
-    });
-  }
+  // ── SVG background click → zoom out
+  eaSvg.addEventListener('click', (e) => {
+    if (!exploreZoomed) return;
+    if (!e.target.closest('.ea-node') && !e.target.closest('#ea-overlay')) zoomExploreOut();
+  });
 
   section.style.display = '';
   requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
