@@ -243,14 +243,8 @@ const QW_ROLES = {
     dept: 'Customer Implementation',
     track: 'Executive',
     level: 'VP/Executive',
-    overview: '[NOTE: Overview text is cut off in source — needs to be updated with full description.]',
-    competencies: [
-      'Strategic Thinking',
-      'Communication',
-      'Results Orientation',
-      'Collaboration',
-      'Coaching',
-    ],
+    overview: 'As QW\'s Vice President of Implementation and Support, you\'re a visionary leader completely obsessed with maximizing customer relationships through great service. You believe, as we do, in a virtuous cycle of customer success, improved revenue and company growth. We are seeking a determined and motivated individual with a proven track record of success in growing and retaining a strong customer base with a knack for big systems thinking and evidence-based action.',
+    competencies: ['Strategic Thinking', 'Communication', 'Results Orientation', 'Collaboration', 'Coaching'],
     milestones: ['Highest Director/VP level in CIS — success measured by time-to-live, customer satisfaction, and team retention', 'Owns full Customer Implementation and Support function strategy', 'Partners with CCO, CRO, and CPO on post-sale customer experience strategy'],
     next: {
       vertical:  ['chief-customer-officer'],
@@ -1535,10 +1529,8 @@ const QW_ROLES = {
     dept: 'Quality',
     track: 'IC',
     level: '',
-    overview: '[Placeholder — details to be provided by Archana. Quality Engineers play an integral role in making sure the product we build is reliable, making them an integral part of how Quantum Workplace makes work better every day.]',
-    competencies: [
-      '[TBD]',
-    ],
+    overview: 'As a Quality Engineer, you will own designing automated tests to check the functionality of the product at different phases in development to make sure they are functional and meet the requirements. You will work with an empowered cross-functional squad, including a product manager, developers, and designers to define test strategies to validate requirements and meet quality targets. Quality Engineers will play an integral role in determining quality improvement factors and making sure the product we build is reliable, making them an integral part of how Quantum Workplace makes work better every day.',
+    competencies: ['Communication', 'Strategic Thinking', 'Results Orientation', 'Collaboration', 'Problem Solving'],
     milestones: [],
     next: {
       vertical:  ['quality-engineer-ii'],
