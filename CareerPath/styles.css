@@ -1205,8 +1205,15 @@ blockquote {
 .c-node { transition: opacity .25s ease; }
 .c-node:not(.c-center):hover .c-node-circle { filter: brightness(1.3); }
 .c-node:not(.c-center):focus-visible { outline: 2px solid white; outline-offset: 4px; border-radius: 50%; }
-/* Explore-all mode indicator on stage */
-.constellation-stage.explore-mode { box-shadow: 0 0 0 2px #003B75, 0 0 28px 6px rgba(0,59,117,.3), 0 24px 80px rgba(0,0,0,.20); }
+/* Explore-all mode: fixed square window (Google Maps style — container never resizes) */
+.constellation-stage.explore-mode {
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px #003B75, 0 0 28px 6px rgba(0,59,117,.3), 0 24px 80px rgba(0,0,0,.20);
+}
+.constellation-stage.explore-mode svg {
+  height: 100%; /* override height:auto — SVG fills the fixed container */
+}
 
 /* Feature context label */
 .feature-context {
